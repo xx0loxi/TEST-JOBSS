@@ -39,12 +39,3 @@ body {
 .modal-container {
   transition: transform 0.3s ease-out, opacity 0.3s ease-out;
 }
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-.animate-spin-custom {
-  animation: spin 1.2s linear infinite;
-}
-
