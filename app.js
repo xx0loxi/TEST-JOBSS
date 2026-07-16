@@ -123,8 +123,102 @@ function initState() {
 }
 
 function saveState() {
+  state.lastModified = Date.now();
   localStorage.setItem("staff_logic_state_v3", JSON.stringify(state));
+  pushStateToCloud();
 }
+
+// ===================================================
+// CLOUD SYNCHRONIZATION (keyvalue.xyz REST KV backend)
+// ===================================================
+const SYNC_TOKEN = "staff_logic_db_maksim_2026_v4";
+
+function updateSyncStatus(status) {
+  const icon = document.getElementById("sync-status-icon");
+  const text = document.getElementById("sync-status-text");
+  if (!icon || !text) return;
+
+  icon.classList.remove("animate-spin-custom", "text-error", "text-primary");
+  text.classList.remove("text-error", "text-primary");
+
+  if (status === "syncing") {
+    icon.classList.add("animate-spin-custom", "text-primary");
+    text.classList.add("text-primary");
+    text.textContent = "Синхро...";
+  } else if (status === "synced") {
+    text.textContent = "Хмара";
+  } else if (status === "error") {
+    icon.classList.add("text-error");
+    text.classList.add("text-error");
+    text.textContent = "Помилка";
+  }
+}
+
+async function pushStateToCloud() {
+  updateSyncStatus("syncing");
+  try {
+    // Preserve local identity configs from cloud propagation
+    const stateCopy = JSON.parse(JSON.stringify(state));
+    delete stateCopy.currentUser;
+    delete stateCopy.activeTab;
+
+    const res = await fetch(`https://api.keyvalue.xyz/${SYNC_TOKEN}/state`, {
+      method: "POST",
+      body: JSON.stringify(stateCopy)
+    });
+    if (!res.ok) throw new Error("Cloud push failed");
+    updateSyncStatus("synced");
+  } catch (e) {
+    console.error(e);
+    updateSyncStatus("error");
+  }
+}
+
+async function pullStateFromCloud() {
+  updateSyncStatus("syncing");
+  try {
+    const res = await fetch(`https://api.keyvalue.xyz/${SYNC_TOKEN}/state`);
+    if (!res.ok) {
+      if (res.status === 404) {
+        // Uninitialized cloud node, send current local database state
+        await pushStateToCloud();
+        return;
+      }
+      throw new Error("Cloud pull failed");
+    }
+    const cloudState = await res.json();
+    if (cloudState && cloudState.lastModified > (state.lastModified || 0)) {
+      const currentUser = state.currentUser;
+      const activeTab = state.activeTab;
+
+      state = cloudState;
+      state.currentUser = currentUser;
+      state.activeTab = activeTab;
+
+      localStorage.setItem("staff_logic_state_v3", JSON.stringify(state));
+      
+      // Refresh visible tab elements immediately
+      switchTab(state.activeTab);
+    }
+    updateSyncStatus("synced");
+  } catch (e) {
+    console.error(e);
+    updateSyncStatus("error");
+  }
+}
+
+async function initSync() {
+  await pullStateFromCloud();
+
+  // Auto update polling every 8 seconds if page is focused
+  setInterval(async () => {
+    if (document.visibilityState === "visible") {
+      await pullStateFromCloud();
+    }
+  }, 8000);
+}
+
+
 
 // ===================================================
 // LOGIN / AUTH
@@ -604,6 +698,7 @@ function savePayout() {
 document.addEventListener("DOMContentLoaded", () => {
   initState();
   checkLogin();
+  initSync();
 
   const hoursInput = document.getElementById("hoursInput");
   if (hoursInput) {
