@@ -6,7 +6,7 @@ const DEFAULT_EMPLOYEES = [
   { id: 2,  name: "Відоненко О.",   role: "Співробітник", rate: 105 },
   { id: 3,  name: "Бондарев С.",    role: "Співробітник", rate: 105 },
   { id: 4,  name: "Бублик С.",      role: "Співробітник", rate: 105 },
-  { id: 5,  name: "Бублик Н.",      role: "Співробітник", rate: 105 },
+  { id: 5,  name: "Бублик А.",      role: "Співробітник", rate: 105 },
   { id: 6,  name: "Бондар Н.",      role: "Співробітник", rate: 105 },
   { id: 7,  name: "Берегова Н.",    role: "Співробітник", rate: 105 },
   { id: 8,  name: "Бабаян Р.",      role: "Співробітник", rate: 105 },
@@ -104,6 +104,14 @@ function initState() {
   if (stored) {
     try {
       state = JSON.parse(stored);
+      // Migration: Update Бублик Н. to Бублик А. in cached state
+      if (state.employees) {
+        state.employees.forEach(emp => {
+          if (emp.id === 5 && emp.name === "Бублик Н.") {
+            emp.name = "Бублик А.";
+          }
+        });
+      }
     } catch (e) {
       state = null;
     }
