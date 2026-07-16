@@ -129,12 +129,10 @@ function saveState() {
 }
 
 // ===================================================
-// CLOUD SYNCHRONIZATION (Node.js Express Backend)
+// CLOUD SYNCHRONIZATION (kvdb.io Free Serverless KV)
 // ===================================================
-// URL вашого хмарного сервера (наприклад, "https://staff-logic-backend.onrender.com")
-// Якщо ви тестуєте локально, вкажіть "http://localhost:3000"
-// Якщо сервер недоступний, додаток автоматично перейде в автономний режим (localStorage).
-const BACKEND_URL = "https://staff-logic-backend.onrender.com";
+// Унікальне сховище для вашої команди. Працює автоматично без серверів та налаштувань.
+const KV_URL = "https://kvdb.io/maksim_logic_db_2026_v4/state";
 
 function updateSyncStatus(status) {
   const icon = document.getElementById("sync-status-icon");
@@ -158,7 +156,6 @@ function updateSyncStatus(status) {
 }
 
 async function pushStateToCloud() {
-  if (!BACKEND_URL) return;
   updateSyncStatus("syncing");
   try {
     // Preserve local identity configs from cloud propagation
@@ -166,9 +163,8 @@ async function pushStateToCloud() {
     delete stateCopy.currentUser;
     delete stateCopy.activeTab;
 
-    const res = await fetch(`${BACKEND_URL}/api/state`, {
+    const res = await fetch(KV_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(stateCopy)
     });
     if (!res.ok) throw new Error("Cloud push failed");
@@ -180,19 +176,19 @@ async function pushStateToCloud() {
 }
 
 async function pullStateFromCloud() {
-  if (!BACKEND_URL) return;
   updateSyncStatus("syncing");
   try {
-    const res = await fetch(`${BACKEND_URL}/api/state`);
-    if (!res.ok) throw new Error("Cloud pull failed");
-    
-    const cloudState = await res.json();
-    // If the database is empty or unitialized, push the current local state to start
-    if (!cloudState || !cloudState.lastModified) {
-      await pushStateToCloud();
-      return;
+    const res = await fetch(KV_URL);
+    if (!res.ok) {
+      if (res.status === 404) {
+        // Uninitialized cloud node, send current local database state
+        await pushStateToCloud();
+        return;
+      }
+      throw new Error("Cloud pull failed");
     }
     
+    const cloudState = await res.json();
     if (cloudState && cloudState.lastModified > (state.lastModified || 0)) {
       const currentUser = state.currentUser;
       const activeTab = state.activeTab;
