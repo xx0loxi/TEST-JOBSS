@@ -177,7 +177,7 @@
         </div>
       </section>
 
-      <!-- Table View (Uses highly compact sticky left columns for mobile viewports) -->
+      <!-- Table View (Uses highly compact sticky left columns for mobile viewports, spans 7 days) -->
       <section class="flex flex-col gap-xs">
         <span class="text-[11px] text-on-surface-variant flex items-center gap-1 ml-xs select-none">
           <span class="material-symbols-outlined text-sm">swipe_left</span>
@@ -210,13 +210,21 @@
               <col class="w-[55px] min-w-[55px]">
               <col class="w-[55px] min-w-[55px]">
               <col class="w-[55px] min-w-[55px]">
+              <!-- 18.07 -->
+              <col class="w-[55px] min-w-[55px]">
+              <col class="w-[55px] min-w-[55px]">
+              <col class="w-[55px] min-w-[55px]">
+              <!-- 19.07 -->
+              <col class="w-[55px] min-w-[55px]">
+              <col class="w-[55px] min-w-[55px]">
+              <col class="w-[55px] min-w-[55px]">
             </colgroup>
             <thead>
               <tr class="bg-surface-container text-center font-semibold text-on-surface">
                 <!-- Span 3 rows to match rowspan of other rows correctly -->
                 <th rowspan="3" class="px-1 py-3 border-b border-r border-outline-variant/80 sticky left-0 bg-surface-container z-20 text-[10px]">№</th>
                 <th rowspan="3" class="px-2 py-3 border-b border-r-2 border-primary/20 sticky left-[32px] bg-surface-container z-20 text-left text-[10px]">Працівник</th>
-                <th colspan="15" class="py-1.5 border-b border-outline-variant uppercase tracking-wider text-[10px] bg-surface-container">Число місяця</th>
+                <th colspan="21" class="py-1.5 border-b border-outline-variant uppercase tracking-wider text-[10px] bg-surface-container">Число місяця</th>
               </tr>
               <tr class="bg-surface-container-low text-center font-bold text-on-surface">
                 <th colspan="3" class="py-1.5 border-b border-r border-outline-variant text-[11px]">13.07 (Пн)</th>
@@ -224,6 +232,8 @@
                 <th colspan="3" class="py-1.5 border-b border-r border-outline-variant text-[11px]">15.07 (Ср)</th>
                 <th colspan="3" class="py-1.5 border-b border-r border-outline-variant text-[11px]">16.07 (Чт)</th>
                 <th colspan="3" class="py-1.5 border-b border-r border-outline-variant text-[11px]">17.07 (Пт)</th>
+                <th colspan="3" class="py-1.5 border-b border-r border-outline-variant text-[11px] text-tertiary">18.07 (Сб)</th>
+                <th colspan="3" class="py-1.5 border-b border-r border-outline-variant text-[11px] text-tertiary">19.07 (Нд)</th>
               </tr>
               <tr class="bg-surface-container-lowest text-center font-medium text-on-surface-variant text-[9px]">
                 <!-- 13.07 -->
@@ -245,6 +255,14 @@
                 <!-- 17.07 -->
                 <th class="py-1 border-b border-r border-outline-variant">прибу</th>
                 <th class="py-1 border-b border-r border-outline-variant">вибув</th>
+                <th class="py-1 border-b border-r border-outline-variant font-semibold text-primary">годин</th>
+                <!-- 18.07 -->
+                <th class="py-1 border-b border-r border-outline-variant text-tertiary">прибу</th>
+                <th class="py-1 border-b border-r border-outline-variant text-tertiary">вибув</th>
+                <th class="py-1 border-b border-r border-outline-variant font-semibold text-primary">годин</th>
+                <!-- 19.07 -->
+                <th class="py-1 border-b border-r border-outline-variant text-tertiary">прибу</th>
+                <th class="py-1 border-b border-r border-outline-variant text-tertiary">вибув</th>
                 <th class="py-1 border-b border-r border-outline-variant font-semibold text-primary">годин</th>
               </tr>
             </thead>

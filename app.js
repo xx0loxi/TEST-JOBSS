@@ -364,7 +364,9 @@ const WEEK_DAYS = [
   { label: "Вв", day: 14, dateStr: "2026-07-14" },
   { label: "Ср", day: 15, dateStr: "2026-07-15" },
   { label: "Чт", day: 16, dateStr: "2026-07-16" },
-  { label: "Пт", day: 17, dateStr: "2026-07-17" }
+  { label: "Пт", day: 17, dateStr: "2026-07-17" },
+  { label: "Сб", day: 18, dateStr: "2026-07-18" },
+  { label: "Нд", day: 19, dateStr: "2026-07-19" }
 ];
 
 function renderSchedule() {
