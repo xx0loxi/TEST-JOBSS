@@ -28,7 +28,19 @@ body {
 }
 
 .animate-fade-slide-up {
-  animation: fadeSlideUp 0.5s ease-out forwards;
+  animation: fadeSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Subview transitions */
+.subview-content {
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.subview-content.subview-active {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Modal styling matching the Material Design colors */
@@ -37,5 +49,10 @@ body {
 }
 
 .modal-container {
-  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Smooth button tap feedback */
+button {
+  -webkit-tap-highlight-color: transparent;
 }

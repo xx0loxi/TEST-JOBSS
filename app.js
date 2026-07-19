@@ -24,6 +24,33 @@ const DEFAULT_EMPLOYEES = [
   { id: 20, name: "Філопов С.",     role: "Співробітник", rate: 105 }
 ];
 
+// ===================================================
+// TIME SLOTS DEFINITION (21 Slots from 07:00 to 19:00)
+// ===================================================
+const TIME_SLOTS = [
+  { id: 1,  time: "07:00 – 08:00", type: "work",  duration: 1.0, title: "Робочий час" },
+  { id: 2,  time: "08:00 – 08:10", type: "break", duration: 0.166, title: "Перерва" },
+  { id: 3,  time: "08:10 – 09:10", type: "work",  duration: 1.0, title: "Робочий час" },
+  { id: 4,  time: "09:10 – 09:20", type: "break", duration: 0.166, title: "Перерва" },
+  { id: 5,  time: "09:20 – 10:20", type: "work",  duration: 1.0, title: "Робочий час" },
+  { id: 6,  time: "10:20 – 10:30", type: "break", duration: 0.166, title: "Перерва" },
+  { id: 7,  time: "10:30 – 11:30", type: "work",  duration: 1.0, title: "Робочий час" },
+  { id: 8,  time: "11:30 – 11:50", type: "break", duration: 0.333, title: "Обідня перерва" },
+  { id: 9,  time: "11:50 – 12:50", type: "work",  duration: 1.0, title: "Робочий час" },
+  { id: 10, time: "12:50 – 13:00", type: "break", duration: 0.166, title: "Перерва" },
+  { id: 11, time: "13:00 – 14:00", type: "work",  duration: 1.0, title: "Робочий час" },
+  { id: 12, time: "14:00 – 14:10", type: "break", duration: 0.166, title: "Перерва" },
+  { id: 13, time: "14:10 – 15:10", type: "work",  duration: 1.0, title: "Робочий час" },
+  { id: 14, time: "15:10 – 15:20", type: "break", duration: 0.166, title: "Перерва" },
+  { id: 15, time: "15:20 – 16:20", type: "work",  duration: 1.0, title: "Робочий час" },
+  { id: 16, time: "16:20 – 16:30", type: "break", duration: 0.166, title: "Перерва" },
+  { id: 17, time: "16:30 – 17:30", type: "work",  duration: 1.0, title: "Робочий час" },
+  { id: 18, time: "17:30 – 17:40", type: "break", duration: 0.166, title: "Перерва" },
+  { id: 19, time: "17:40 – 18:40", type: "work",  duration: 1.0, title: "Робочий час" },
+  { id: 20, time: "18:40 – 18:50", type: "break", duration: 0.166, title: "Перерва" },
+  { id: 21, time: "18:50 – 19:00", type: "break", duration: 0.166, title: "Перерва" }
+];
+
 // Pre-populated attendance logs directly from the uploaded schedule sheet photo
 const PRE_POPULATED_ATTENDANCE = {
   // Monday 13.07
@@ -77,6 +104,9 @@ const PRE_POPULATED_ATTENDANCE = {
 const DEFAULT_STATE = {
   employees: DEFAULT_EMPLOYEES,
   attendance: PRE_POPULATED_ATTENDANCE,
+  slotAttendance: {},
+  scheduleSubView: "slots",
+  selectedSlotsEmployee: null,
   payouts: [],
   activeTab: "dashboard",
   selectedDate: "2026-07-14",
@@ -120,6 +150,11 @@ function initState() {
     state = JSON.parse(JSON.stringify(DEFAULT_STATE));
     saveState();
   }
+  if (!state.slotAttendance) state.slotAttendance = {};
+  if (!state.scheduleSubView) state.scheduleSubView = "slots";
+  if (!state.selectedSlotsEmployee && state.currentUser) {
+    state.selectedSlotsEmployee = state.currentUser;
+  }
 }
 
 function saveState() {
@@ -138,6 +173,9 @@ function checkLogin() {
   const storedUserId = localStorage.getItem("staff_logic_current_user_id");
   if (storedUserId) {
     state.currentUser = parseInt(storedUserId);
+    if (!state.selectedSlotsEmployee) {
+      state.selectedSlotsEmployee = state.currentUser;
+    }
   }
 
   if (state.currentUser === null || state.currentUser === undefined) {
@@ -222,6 +260,7 @@ function filterLoginEmployees() {
 function confirmLogin() {
   if (!selectedLoginUserId) return;
   state.currentUser = selectedLoginUserId;
+  state.selectedSlotsEmployee = selectedLoginUserId;
   localStorage.setItem("staff_logic_current_user_id", selectedLoginUserId);
   saveState();
   checkLogin();
@@ -240,7 +279,7 @@ function renderUserHeader() {
 }
 
 // ===================================================
-// TAB NAVIGATION  (no jitter — single fixed header, single content div)
+// TAB NAVIGATION
 // ===================================================
 function switchTab(tabId) {
   state.activeTab = tabId;
@@ -261,9 +300,16 @@ function switchTab(tabId) {
   renderBottomNav();
 
   switch (tabId) {
-    case "dashboard":   renderDashboard(); break;
-    case "schedule":    renderSchedule(); break;
-    case "calculator":  renderCalculator(); break;
+    case "dashboard":
+      renderDashboard();
+      break;
+    case "schedule":
+      setScheduleSubView(state.scheduleSubView || "slots");
+      renderSchedule();
+      break;
+    case "calculator":
+      renderCalculator();
+      break;
   }
 }
 
@@ -357,7 +403,7 @@ function renderDashboard() {
 }
 
 // ===================================================
-// SCHEDULE (Horizontal spreadsheet table populated dynamically)
+// SCHEDULE (Subviews: Hourly Slots & Spreadsheet Table)
 // ===================================================
 const WEEK_DAYS = [
   { label: "Пн", day: 13, dateStr: "2026-07-13" },
@@ -369,6 +415,336 @@ const WEEK_DAYS = [
   { label: "Нд", day: 19, dateStr: "2026-07-19" }
 ];
 
+function setScheduleSubView(subView) {
+  state.scheduleSubView = subView;
+  saveState();
+
+  const slotsEl = document.getElementById("subview-schedule-slots");
+  const tableEl = document.getElementById("subview-schedule-table");
+  const btnSlots = document.getElementById("btn-subview-slots");
+  const btnTable = document.getElementById("btn-subview-table");
+  const indicator = document.getElementById("subview-indicator");
+
+  if (subView === "slots") {
+    if (indicator) indicator.style.transform = "translateX(0%)";
+    if (btnSlots) {
+      btnSlots.classList.remove("text-on-surface-variant");
+      btnSlots.classList.add("text-primary");
+    }
+    if (btnTable) {
+      btnTable.classList.remove("text-primary");
+      btnTable.classList.add("text-on-surface-variant");
+    }
+
+    if (tableEl) {
+      tableEl.classList.add("hidden");
+      tableEl.classList.remove("subview-active");
+    }
+    if (slotsEl) {
+      slotsEl.classList.remove("hidden");
+      requestAnimationFrame(() => {
+        slotsEl.classList.add("subview-active");
+      });
+    }
+    renderSlotsSchedule();
+  } else {
+    if (indicator) indicator.style.transform = "translateX(100%)";
+    if (btnTable) {
+      btnTable.classList.remove("text-on-surface-variant");
+      btnTable.classList.add("text-primary");
+    }
+    if (btnSlots) {
+      btnSlots.classList.remove("text-primary");
+      btnSlots.classList.add("text-on-surface-variant");
+    }
+
+    if (slotsEl) {
+      slotsEl.classList.add("hidden");
+      slotsEl.classList.remove("subview-active");
+    }
+    if (tableEl) {
+      tableEl.classList.remove("hidden");
+      requestAnimationFrame(() => {
+        tableEl.classList.add("subview-active");
+      });
+    }
+  }
+}
+
+function getSlotStatuses(dateStr, empId) {
+  if (!state.slotAttendance) state.slotAttendance = {};
+  if (!state.slotAttendance[dateStr]) state.slotAttendance[dateStr] = {};
+  
+  if (!state.slotAttendance[dateStr][empId]) {
+    const dayAtt = (state.attendance[dateStr] || {})[empId];
+    const initial = {};
+    if (dayAtt && dayAtt.status === "Absent") {
+      TIME_SLOTS.forEach(s => { initial[s.id] = "missed"; });
+    } else {
+      // Default: slots 1..16 worked, slots 17..21 none
+      TIME_SLOTS.forEach(s => {
+        initial[s.id] = s.id <= 16 ? "worked" : "none";
+      });
+    }
+    state.slotAttendance[dateStr][empId] = initial;
+  }
+  
+  return state.slotAttendance[dateStr][empId];
+}
+
+function renderSlotsSchedule() {
+  const dateStr = state.selectedDate || "2026-07-14";
+  const empId = state.selectedSlotsEmployee || state.currentUser || 1;
+
+  // 1. Render Date Pills
+  const datePillsEl = document.getElementById("slots-date-pills");
+  if (datePillsEl) {
+    datePillsEl.innerHTML = WEEK_DAYS.map(d => {
+      const isActive = d.dateStr === dateStr;
+      const cls = isActive
+        ? "bg-primary text-on-primary font-bold shadow-xs"
+        : "bg-surface-container-lowest border border-outline-variant text-on-surface-variant hover:bg-surface-container-low";
+      return `
+        <button onclick="changeSlotsDate('${d.dateStr}')" class="px-3 py-1.5 rounded-xl text-xs flex-shrink-0 transition-all active:scale-95 ${cls}">
+          ${d.day}.07 (${d.label})
+        </button>`;
+    }).join("");
+  }
+
+  // 2. Render Custom Employee Button Badge & Name
+  const emp = state.employees.find(e => e.id === empId) || state.employees[0];
+  const empBadgeEl = document.getElementById("slots-emp-badge");
+  const empNameEl = document.getElementById("slots-emp-name");
+  if (empBadgeEl) empBadgeEl.textContent = getInitials(emp.name);
+  if (empNameEl) {
+    const isMe = emp.id === state.currentUser ? " (Ви)" : "";
+    empNameEl.textContent = `${emp.name}${isMe}`;
+  }
+
+  // 3. Get slot statuses and sync summary stats
+  const slotStatuses = getSlotStatuses(dateStr, empId);
+  let workedHours = 0;
+
+  TIME_SLOTS.forEach(slot => {
+    if (slotStatuses[slot.id] === "worked" && slot.type === "work") {
+      workedHours += slot.duration;
+    }
+  });
+
+  const hoursEl = document.getElementById("slots-total-hours");
+  if (hoursEl) hoursEl.textContent = `${workedHours.toFixed(1)} год`;
+
+  // 4. Render 21 Time Slot Cards with crisp Material vector icons
+  const containerEl = document.getElementById("slots-container");
+  if (!containerEl) return;
+
+  containerEl.innerHTML = TIME_SLOTS.map(slot => {
+    const status = slotStatuses[slot.id] || "none";
+    const isWork = slot.type === "work";
+
+    let cardBorderClass = "bg-surface-container-lowest border border-outline-variant/60 border-l-4 border-l-outline-variant/60";
+    let badgeHtml = "";
+
+    if (status === "worked") {
+      cardBorderClass = "bg-emerald-50/20 border border-outline-variant/50 border-l-4 border-l-emerald-500 shadow-xs";
+      badgeHtml = `<span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex-shrink-0 items-center gap-1"><span class="material-symbols-outlined text-[12px] text-[#16a34a]">check_circle</span> Відпрацьовано</span>`;
+    } else if (status === "missed") {
+      cardBorderClass = "bg-rose-50/20 border border-outline-variant/50 border-l-4 border-l-rose-500 shadow-xs";
+      badgeHtml = `<span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 flex-shrink-0 items-center gap-1"><span class="material-symbols-outlined text-[12px] text-error">cancel</span> Пропуск</span>`;
+    } else {
+      badgeHtml = `<span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-surface-container text-on-surface-variant flex-shrink-0 items-center gap-1"><span class="material-symbols-outlined text-[12px]">schedule</span> Очікує</span>`;
+    }
+
+    const typeIcon = isWork ? "work" : "coffee";
+    const typeLabel = isWork ? "Робочий час (1 год)" : (slot.duration > 0.2 ? "Обідня перерва (20 хв)" : "Перерва (10 хв)");
+
+    return `
+      <div class="rounded-xl p-3 flex items-center justify-between transition-all ${cardBorderClass}">
+        <div class="flex items-center gap-2.5 min-w-0 pr-xs">
+          <div class="w-7 h-7 rounded-lg bg-surface-container flex items-center justify-center text-[10px] font-bold text-on-surface-variant flex-shrink-0">
+            #${slot.id}
+          </div>
+          <div class="flex flex-col min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-xs font-bold text-on-surface">${slot.time}</span>
+            </div>
+            <span class="text-[10px] text-on-surface-variant flex items-center gap-1 mt-0.5 truncate">
+              <span class="material-symbols-outlined text-[13px]">${typeIcon}</span> ${typeLabel}
+            </span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 flex-shrink-0">
+          ${badgeHtml}
+          
+          <div class="flex items-center bg-surface-container border border-outline-variant/80 rounded-xl p-0.5 gap-0.5">
+            <button onclick="setSlotStatus(${slot.id}, 'worked')" title="Відпрацьовано" class="w-8 h-8 rounded-lg font-bold flex items-center justify-center transition-all duration-150 active:scale-90 ${status === "worked" ? "bg-[#16a34a] text-white shadow-xs" : "text-on-surface-variant hover:bg-emerald-100/60 hover:text-emerald-700"}">
+              <span class="material-symbols-outlined text-lg" style="font-variation-settings: 'wght' 700;">check</span>
+            </button>
+            <button onclick="setSlotStatus(${slot.id}, 'missed')" title="Пропуск" class="w-8 h-8 rounded-lg font-bold flex items-center justify-center transition-all duration-150 active:scale-90 ${status === "missed" ? "bg-error text-white shadow-xs" : "text-on-surface-variant hover:bg-rose-100/60 hover:text-rose-700"}">
+              <span class="material-symbols-outlined text-lg" style="font-variation-settings: 'wght' 700;">close</span>
+            </button>
+          </div>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function changeSlotsDate(dateStr) {
+  state.selectedDate = dateStr;
+  saveState();
+  renderSlotsSchedule();
+  renderSchedule();
+}
+
+function changeSlotsEmployee(empId) {
+  state.selectedSlotsEmployee = parseInt(empId);
+  saveState();
+  renderSlotsSchedule();
+}
+
+function setSlotStatus(slotId, status) {
+  const dateStr = state.selectedDate || "2026-07-14";
+  const empId = state.selectedSlotsEmployee || state.currentUser || 1;
+  const slotStatuses = getSlotStatuses(dateStr, empId);
+
+  if (slotStatuses[slotId] === status) {
+    slotStatuses[slotId] = "none";
+  } else {
+    slotStatuses[slotId] = status;
+  }
+
+  syncSlotsToAttendance(dateStr, empId);
+  saveState();
+  renderSlotsSchedule();
+  renderSchedule();
+}
+
+function bulkSetSlots(status) {
+  const dateStr = state.selectedDate || "2026-07-14";
+  const empId = state.selectedSlotsEmployee || state.currentUser || 1;
+  const slotStatuses = getSlotStatuses(dateStr, empId);
+
+  TIME_SLOTS.forEach(s => {
+    slotStatuses[s.id] = status;
+  });
+
+  syncSlotsToAttendance(dateStr, empId);
+  saveState();
+  renderSlotsSchedule();
+  renderSchedule();
+}
+
+function syncSlotsToAttendance(dateStr, empId) {
+  const slots = getSlotStatuses(dateStr, empId);
+  let workedHours = 0;
+  let hasWorked = false;
+
+  TIME_SLOTS.forEach(slot => {
+    const st = slots[slot.id] || "none";
+    if (st === "worked") {
+      if (slot.type === "work") workedHours += slot.duration;
+      hasWorked = true;
+    }
+  });
+
+  if (!state.attendance[dateStr]) state.attendance[dateStr] = {};
+
+  let newStatus = "Absent";
+  if (workedHours > 0) {
+    newStatus = workedHours >= 8 ? "Arrived" : "Working";
+  } else if (hasWorked) {
+    newStatus = "Working";
+  }
+
+  const workedSlots = TIME_SLOTS.filter(s => slots[s.id] === "worked");
+  let firstClockIn = "";
+  let lastClockOut = "";
+
+  if (workedSlots.length > 0) {
+    firstClockIn = workedSlots[0].time.split(" – ")[0];
+    lastClockOut = workedSlots[workedSlots.length - 1].time.split(" – ")[1];
+  }
+
+  state.attendance[dateStr][empId] = {
+    status: newStatus,
+    clockIn: firstClockIn,
+    clockOut: lastClockOut,
+    hours: workedHours
+  };
+}
+
+// ===================================================
+// SLOTS EMPLOYEE PICKER MODAL
+// ===================================================
+function openSlotsEmpModal() {
+  populateSlotsEmpModal();
+  const modal = document.getElementById("slots-emp-modal");
+  const content = document.getElementById("slots-emp-modal-content");
+  if (!modal || !content) return;
+  modal.classList.remove("hidden");
+  requestAnimationFrame(() => {
+    content.classList.remove("translate-y-full");
+    content.classList.add("translate-y-0");
+  });
+}
+
+function closeSlotsEmpModal() {
+  const modal = document.getElementById("slots-emp-modal");
+  const content = document.getElementById("slots-emp-modal-content");
+  if (!modal || !content) return;
+  content.classList.remove("translate-y-0");
+  content.classList.add("translate-y-full");
+  setTimeout(() => modal.classList.add("hidden"), 300);
+}
+
+function populateSlotsEmpModal() {
+  const list = document.getElementById("slots-emp-modal-list");
+  if (!list) return;
+  const currentEmpId = state.selectedSlotsEmployee || state.currentUser || 1;
+
+  list.innerHTML = state.employees.map(emp => {
+    const isSelected = emp.id === currentEmpId;
+    const isMe = emp.id === state.currentUser ? " (Ви)" : "";
+    const initials = getInitials(emp.name);
+    const bgClass = isSelected ? "bg-secondary-container text-on-secondary-container border-primary/30" : "hover:bg-surface-container border-transparent";
+    const checkOpacity = isSelected ? "opacity-100" : "opacity-0";
+
+    return `
+      <div onclick="selectSlotsEmpModal(${emp.id})" id="slots-emp-item-${emp.id}" class="slots-emp-item flex items-center justify-between p-sm rounded-xl cursor-pointer transition-all duration-150 border ${bgClass}">
+        <div class="flex items-center gap-sm">
+          <div class="w-9 h-9 rounded-full bg-surface-container-high border border-outline-variant flex items-center justify-center text-primary font-bold text-xs flex-shrink-0">${initials}</div>
+          <div class="flex flex-col min-w-0">
+            <span class="font-body-md text-xs text-on-surface truncate font-semibold">${emp.name}${isMe}</span>
+            <span class="font-label-md text-[10px] text-on-surface-variant">${emp.role}</span>
+          </div>
+        </div>
+        <span class="material-symbols-outlined text-primary text-base ${checkOpacity} check-icon">check_circle</span>
+      </div>`;
+  }).join("");
+}
+
+function filterSlotsEmpModal() {
+  const searchVal = (document.getElementById("slots-emp-search").value || "").toLowerCase().trim();
+  state.employees.forEach(emp => {
+    const item = document.getElementById(`slots-emp-item-${emp.id}`);
+    if (item) {
+      if (emp.name.toLowerCase().includes(searchVal) || emp.role.toLowerCase().includes(searchVal)) {
+        item.classList.remove("hidden");
+      } else {
+        item.classList.add("hidden");
+      }
+    }
+  });
+}
+
+function selectSlotsEmpModal(empId) {
+  state.selectedSlotsEmployee = parseInt(empId);
+  saveState();
+  closeSlotsEmpModal();
+  renderSlotsSchedule();
+}
+
 function renderSchedule() {
   // Weekly hours summary for the logged-in user
   const user = state.employees.find(e => e.id === state.currentUser);
@@ -376,7 +752,7 @@ function renderSchedule() {
   WEEK_DAYS.forEach(d => {
     const dayData = state.attendance[d.dateStr] || {};
     const rec = dayData[state.currentUser];
-    if (rec && rec.status === "Arrived") {
+    if (rec && (rec.status === "Arrived" || rec.status === "Working")) {
       totalHours += rec.hours || 0;
     }
   });
@@ -474,9 +850,6 @@ function openAttendanceModal(employeeId, dateStr) {
   });
 }
 
-// ===================================================
-// ATTENDANCE SAVE & CALCULATE
-// ===================================================
 function closeAttendanceModal() {
   const modal = document.getElementById("attendance-modal");
   const content = document.getElementById("attendance-modal-content");
@@ -534,6 +907,7 @@ function saveAttendanceModal() {
 
   saveState();
   renderSchedule();
+  renderSlotsSchedule();
   closeAttendanceModal();
 }
 
@@ -553,7 +927,7 @@ function autoFillHoursFromSchedule() {
 
   const todayAtt = state.attendance[state.selectedDate] || {};
   const rec = todayAtt[state.currentUser];
-  if (rec && rec.status === "Arrived") {
+  if (rec && (rec.status === "Arrived" || rec.status === "Working")) {
     hoursInput.value = rec.hours || 0;
   } else {
     hoursInput.value = "0";
