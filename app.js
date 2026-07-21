@@ -146,7 +146,7 @@ function formatDateToISO(d) {
 
 function getWeekDaysForMonday(mondayStr) {
   const monday = new Date(mondayStr + "T00:00:00");
-  const dayLabels = ["Пн", "Вв", "Ср", "Чт", "Пт", "Сб", "Нд"];
+  const dayLabels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
   const weekDays = [];
   const todayStr = getTodayDateStr();
 
@@ -259,13 +259,9 @@ function initState() {
   const todayStr = getTodayDateStr();
   const todayMondayStr = formatDateToISO(getMondayOfDate(new Date()));
 
-  if (!state.currentWeekMondayStr) {
-    state.currentWeekMondayStr = todayMondayStr;
-  }
-  
-  if (!state.selectedDate) {
-    state.selectedDate = todayStr;
-  }
+  // Always align to current week and today on app load
+  state.currentWeekMondayStr = todayMondayStr;
+  state.selectedDate = todayStr;
 
   if (!state.slotAttendance) state.slotAttendance = {};
   if (!state.scheduleSubView) state.scheduleSubView = "slots";
