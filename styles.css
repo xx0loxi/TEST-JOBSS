@@ -43,6 +43,57 @@ body {
   transform: translateY(0);
 }
 
+/* Date, Week & Month Switching Animations */
+@keyframes slideFadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideFadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slotContentFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-slide-right {
+  animation: slideFadeInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-left {
+  animation: slideFadeInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slot-fade {
+  animation: slotContentFade 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Date pill smooth active state transitions */
+#slots-date-pills button {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* Modal styling matching the Material Design colors */
 .modal-open {
   overflow: hidden;

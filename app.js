@@ -167,6 +167,32 @@ function getWeekDaysForMonday(mondayStr) {
   return weekDays;
 }
 
+function triggerWeekAnimation(direction) {
+  const rangeEl = document.getElementById("current-week-range-text");
+  const pillsEl = document.getElementById("slots-date-pills");
+  const monthEl = document.getElementById("schedule-current-month");
+  const animClass = direction > 0 ? "animate-slide-right" : "animate-slide-left";
+
+  [rangeEl, pillsEl, monthEl].forEach(el => {
+    if (el) {
+      el.classList.remove("animate-slide-right", "animate-slide-left");
+      void el.offsetWidth;
+      el.classList.add(animClass);
+      setTimeout(() => el.classList.remove(animClass), 300);
+    }
+  });
+}
+
+function triggerDaySlotAnimation() {
+  const containerEl = document.getElementById("slots-container");
+  if (containerEl) {
+    containerEl.classList.remove("animate-slot-fade");
+    void containerEl.offsetWidth;
+    containerEl.classList.add("animate-slot-fade");
+    setTimeout(() => containerEl.classList.remove("animate-slot-fade"), 300);
+  }
+}
+
 function navigateWeek(direction) {
   const mondayStr = state.currentWeekMondayStr || formatDateToISO(getMondayOfDate(new Date()));
   const currentMonday = new Date(mondayStr + "T00:00:00");
@@ -183,6 +209,8 @@ function navigateWeek(direction) {
   }
   
   saveState();
+  triggerWeekAnimation(direction);
+  triggerDaySlotAnimation();
   renderSlotsSchedule();
   renderSchedule();
 }
@@ -191,6 +219,8 @@ function jumpToCurrentWeek() {
   state.currentWeekMondayStr = formatDateToISO(getMondayOfDate(new Date()));
   state.selectedDate = getTodayDateStr();
   saveState();
+  triggerWeekAnimation(1);
+  triggerDaySlotAnimation();
   renderSlotsSchedule();
   renderSchedule();
 }
@@ -604,7 +634,7 @@ function renderSlotsSchedule() {
     }
   }
 
-  // 1. Render Date Pills
+  // 1. Render Date Pills with smooth active transitions
   const datePillsEl = document.getElementById("slots-date-pills");
   if (datePillsEl) {
     datePillsEl.innerHTML = weekDays.map(d => {
@@ -612,7 +642,7 @@ function renderSlotsSchedule() {
       let cls = "bg-surface-container-lowest border border-outline-variant text-on-surface-variant hover:bg-surface-container-low";
       
       if (isActive) {
-        cls = "bg-primary text-on-primary font-bold shadow-xs";
+        cls = "bg-primary text-on-primary font-bold shadow-xs scale-[1.02]";
       } else if (d.isToday) {
         cls = "bg-secondary-container text-on-secondary-container font-semibold border-primary/40";
       }
@@ -709,6 +739,7 @@ function renderSlotsSchedule() {
 function changeSlotsDate(dateStr) {
   state.selectedDate = dateStr;
   saveState();
+  triggerDaySlotAnimation();
   renderSlotsSchedule();
   renderSchedule();
 }
@@ -716,6 +747,7 @@ function changeSlotsDate(dateStr) {
 function changeSlotsEmployee(empId) {
   state.selectedSlotsEmployee = parseInt(empId);
   saveState();
+  triggerDaySlotAnimation();
   renderSlotsSchedule();
 }
 
@@ -747,6 +779,7 @@ function bulkSetSlots(status) {
 
   syncSlotsToAttendance(dateStr, empId);
   saveState();
+  triggerDaySlotAnimation();
   renderSlotsSchedule();
   renderSchedule();
 }
@@ -858,6 +891,7 @@ function selectSlotsEmpModal(empId) {
   state.selectedSlotsEmployee = parseInt(empId);
   saveState();
   closeSlotsEmpModal();
+  triggerDaySlotAnimation();
   renderSlotsSchedule();
 }
 
