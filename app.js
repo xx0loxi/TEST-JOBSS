@@ -486,7 +486,10 @@ function updateBottomNavState() {
     }
   });
 
-  requestAnimationFrame(() => updateBottomNavIndicator());
+  requestAnimationFrame(() => {
+    updateBottomNavIndicator();
+    setTimeout(updateBottomNavIndicator, 50);
+  });
 }
 
 function updateBottomNavIndicator() {
@@ -696,24 +699,22 @@ function renderSlotsSchedule() {
   const isCurrentWeek = weekDays.some(d => d.dateStr === todayStr);
   const jumpBadge = document.getElementById("today-jump-badge");
   if (jumpBadge) {
-    if (isCurrentWeek) {
-      jumpBadge.classList.remove("hidden");
-    } else {
-      jumpBadge.classList.add("hidden");
-    }
+    jumpBadge.classList.remove("hidden");
   }
 
-  // 1. Render Date Pills with smooth active transitions
+  // 1. ALWAYS Render "До сьогодні" button at the start of Date Pills
   const datePillsEl = document.getElementById("slots-date-pills");
   if (datePillsEl) {
-    let html = "";
-    if (!isCurrentWeek) {
-      html += `
-        <button onclick="jumpToCurrentWeek()" title="Перейти до поточного тижня та дня" class="px-3 py-1.5 rounded-xl text-xs flex-shrink-0 transition-all active:scale-95 text-center bg-primary text-on-primary font-bold shadow-xs border border-primary/40 flex items-center gap-1">
-          <span class="material-symbols-outlined text-sm text-white">my_location</span>
-          <div>До сьогодні</div>
-        </button>`;
-    }
+    const isTodaySelected = dateStr === todayStr;
+    const todayPillStyle = isTodaySelected
+      ? "bg-primary text-on-primary font-bold shadow-xs scale-[1.02] border border-primary/40"
+      : "bg-primary-container/20 text-primary font-bold hover:bg-primary-container/30 border border-primary/30";
+
+    let html = `
+      <button onclick="jumpToCurrentWeek()" title="Перейти до поточного тижня та дня" class="px-3 py-1.5 rounded-xl text-xs flex-shrink-0 transition-all active:scale-95 text-center ${todayPillStyle} flex items-center gap-1">
+        <span class="material-symbols-outlined text-sm">my_location</span>
+        <div>До сьогодні</div>
+      </button>`;
 
     html += weekDays.map(d => {
       const isActive = d.dateStr === dateStr;
@@ -1340,7 +1341,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (hoursInput) {
     hoursInput.addEventListener("focus", function() { this.select(); });
     hoursInput.addEventListener("input", calculate);
+    hoursInput.addEventListener("change", calculate);
   }
 
   window.addEventListener("resize", updateBottomNavIndicator);
+  window.addEventListener("orientationchange", () => setTimeout(updateBottomNavIndicator, 150));
 });
