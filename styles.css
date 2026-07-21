@@ -1,13 +1,10 @@
 body {
   background-color: #faf8ff;
-  min-height: 100vh;
-  min-height: 100dvh;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
+  min-height: max(884px, 100dvh);
 }
 
 .pb-safe {
-  padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
+  padding-bottom: env(safe-area-inset-bottom, 20px);
 }
 
 .hide-scrollbar::-webkit-scrollbar {
@@ -110,7 +107,6 @@ body {
               transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
               opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
               box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  touch-action: manipulation;
 }
 
 .slot-btn-icon {
@@ -129,5 +125,4 @@ body {
 /* Smooth button tap feedback */
 button {
   -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
 }
