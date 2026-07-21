@@ -51,7 +51,7 @@ const TIME_SLOTS = [
   { id: 21, time: "18:50 – 19:00", type: "break", duration: 0.166, title: "Перерва" }
 ];
 
-// Pre-populated attendance logs directly from the uploaded schedule sheet photo
+// Pre-populated attendance logs directly from schedule photo
 const PRE_POPULATED_ATTENDANCE = {
   // Monday 13.07
   "2026-07-13": {
@@ -76,7 +76,7 @@ const PRE_POPULATED_ATTENDANCE = {
     "19": { status: "Arrived", clockIn: "07:00", clockOut: "19:00", hours: 12.0 },
     "20": { status: "Arrived", clockIn: "16:30", clockOut: "19:30", hours: 3.0 }
   },
-  // Tuesday 14.07 (Today)
+  // Tuesday 14.07
   "2026-07-14": {
     "1": { status: "Working", clockIn: "06:20", clockOut: "", hours: 0 },
     "2": { status: "Working", clockIn: "07:00", clockOut: "", hours: 0 },
@@ -109,7 +109,8 @@ const DEFAULT_STATE = {
   selectedSlotsEmployee: null,
   payouts: [],
   activeTab: "dashboard",
-  selectedDate: "2026-07-14",
+  currentWeekMondayStr: null,
+  selectedDate: null,
   currentUser: null
 };
 
@@ -117,8 +118,83 @@ let state = null;
 let selectedLoginUserId = null;
 
 // ===================================================
-// HELPERS
+// DYNAMIC DATE & WEEK HELPERS
 // ===================================================
+function getTodayDateStr() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getMondayOfDate(d) {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(date.setDate(diff));
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+function formatDateToISO(d) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getWeekDaysForMonday(mondayStr) {
+  const monday = new Date(mondayStr + "T00:00:00");
+  const dayLabels = ["Пн", "Вв", "Ср", "Чт", "Пт", "Сб", "Нд"];
+  const weekDays = [];
+  const todayStr = getTodayDateStr();
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const dateStr = formatDateToISO(d);
+    
+    weekDays.push({
+      label: dayLabels[i],
+      day: d.getDate(),
+      month: d.getMonth() + 1,
+      year: d.getFullYear(),
+      dateStr: dateStr,
+      isToday: dateStr === todayStr
+    });
+  }
+  return weekDays;
+}
+
+function navigateWeek(direction) {
+  const mondayStr = state.currentWeekMondayStr || formatDateToISO(getMondayOfDate(new Date()));
+  const currentMonday = new Date(mondayStr + "T00:00:00");
+  currentMonday.setDate(currentMonday.getDate() + (direction * 7));
+  state.currentWeekMondayStr = formatDateToISO(currentMonday);
+  
+  const weekDays = getWeekDaysForMonday(state.currentWeekMondayStr);
+  const todayInWeek = weekDays.find(d => d.isToday);
+  
+  if (todayInWeek) {
+    state.selectedDate = todayInWeek.dateStr;
+  } else {
+    state.selectedDate = weekDays[0].dateStr;
+  }
+  
+  saveState();
+  renderSlotsSchedule();
+  renderSchedule();
+}
+
+function jumpToCurrentWeek() {
+  state.currentWeekMondayStr = formatDateToISO(getMondayOfDate(new Date()));
+  state.selectedDate = getTodayDateStr();
+  saveState();
+  renderSlotsSchedule();
+  renderSchedule();
+}
+
 function getInitials(name) {
   if (!name) return "??";
   const parts = name.trim().split(/\s+/);
@@ -134,7 +210,6 @@ function initState() {
   if (stored) {
     try {
       state = JSON.parse(stored);
-      // Migration: Update Бублик Н. to Бублик А. in cached state
       if (state.employees) {
         state.employees.forEach(emp => {
           if (emp.id === 5 && emp.name === "Бублик Н.") {
@@ -150,6 +225,18 @@ function initState() {
     state = JSON.parse(JSON.stringify(DEFAULT_STATE));
     saveState();
   }
+
+  const todayStr = getTodayDateStr();
+  const todayMondayStr = formatDateToISO(getMondayOfDate(new Date()));
+
+  if (!state.currentWeekMondayStr) {
+    state.currentWeekMondayStr = todayMondayStr;
+  }
+  
+  if (!state.selectedDate) {
+    state.selectedDate = todayStr;
+  }
+
   if (!state.slotAttendance) state.slotAttendance = {};
   if (!state.scheduleSubView) state.scheduleSubView = "slots";
   if (!state.selectedSlotsEmployee && state.currentUser) {
@@ -349,7 +436,7 @@ function renderBottomNav() {
 // DASHBOARD
 // ===================================================
 function renderDashboard() {
-  const todayAtt = state.attendance[state.selectedDate] || {};
+  const todayAtt = state.attendance[state.selectedDate || getTodayDateStr()] || {};
   let onShift = 0, absent = 0;
 
   state.employees.forEach(emp => {
@@ -405,16 +492,6 @@ function renderDashboard() {
 // ===================================================
 // SCHEDULE (Subviews: Hourly Slots & Spreadsheet Table)
 // ===================================================
-const WEEK_DAYS = [
-  { label: "Пн", day: 13, dateStr: "2026-07-13" },
-  { label: "Вв", day: 14, dateStr: "2026-07-14" },
-  { label: "Ср", day: 15, dateStr: "2026-07-15" },
-  { label: "Чт", day: 16, dateStr: "2026-07-16" },
-  { label: "Пт", day: 17, dateStr: "2026-07-17" },
-  { label: "Сб", day: 18, dateStr: "2026-07-18" },
-  { label: "Нд", day: 19, dateStr: "2026-07-19" }
-];
-
 function setScheduleSubView(subView) {
   state.scheduleSubView = subView;
   saveState();
@@ -493,20 +570,59 @@ function getSlotStatuses(dateStr, empId) {
 }
 
 function renderSlotsSchedule() {
-  const dateStr = state.selectedDate || "2026-07-14";
+  const mondayStr = state.currentWeekMondayStr || formatDateToISO(getMondayOfDate(new Date()));
+  const weekDays = getWeekDaysForMonday(mondayStr);
+  const dateStr = state.selectedDate || getTodayDateStr();
   const empId = state.selectedSlotsEmployee || state.currentUser || 1;
+
+  // Render Month Header Label e.g. "ЛИПЕНЬ 2026"
+  const monthsUaFull = ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"];
+  const currentMonthEl = document.getElementById("schedule-current-month");
+  if (currentMonthEl && weekDays.length > 0) {
+    const mainMonth = weekDays[3].month - 1; // Thursday month as anchor
+    currentMonthEl.textContent = `${monthsUaFull[mainMonth]} ${weekDays[3].year}`;
+  }
+
+  // Render Week Range Text e.g. "20 Лип – 26 Лип 2026"
+  const monday = new Date(mondayStr + "T00:00:00");
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const monthsUaShort = ["Січ", "Лют", "Бер", "Квіт", "Трав", "Черв", "Лип", "Серп", "Вер", "Жовт", "Лист", "Груд"];
+  const rangeText = `${monday.getDate()} ${monthsUaShort[monday.getMonth()]} – ${sunday.getDate()} ${monthsUaShort[sunday.getMonth()]} ${sunday.getFullYear()}`;
+  
+  const rangeEl = document.getElementById("current-week-range-text");
+  if (rangeEl) rangeEl.textContent = rangeText;
+
+  const todayStr = getTodayDateStr();
+  const isCurrentWeek = weekDays.some(d => d.dateStr === todayStr);
+  const jumpBadge = document.getElementById("today-jump-badge");
+  if (jumpBadge) {
+    if (isCurrentWeek) {
+      jumpBadge.classList.remove("hidden");
+    } else {
+      jumpBadge.classList.add("hidden");
+    }
+  }
 
   // 1. Render Date Pills
   const datePillsEl = document.getElementById("slots-date-pills");
   if (datePillsEl) {
-    datePillsEl.innerHTML = WEEK_DAYS.map(d => {
+    datePillsEl.innerHTML = weekDays.map(d => {
       const isActive = d.dateStr === dateStr;
-      const cls = isActive
-        ? "bg-primary text-on-primary font-bold shadow-xs"
-        : "bg-surface-container-lowest border border-outline-variant text-on-surface-variant hover:bg-surface-container-low";
+      let cls = "bg-surface-container-lowest border border-outline-variant text-on-surface-variant hover:bg-surface-container-low";
+      
+      if (isActive) {
+        cls = "bg-primary text-on-primary font-bold shadow-xs";
+      } else if (d.isToday) {
+        cls = "bg-secondary-container text-on-secondary-container font-semibold border-primary/40";
+      }
+
+      const todayBadge = d.isToday ? `<span class="block text-[8px] uppercase font-bold tracking-tight">Сьогодні</span>` : "";
+
       return `
-        <button onclick="changeSlotsDate('${d.dateStr}')" class="px-3 py-1.5 rounded-xl text-xs flex-shrink-0 transition-all active:scale-95 ${cls}">
-          ${d.day}.07 (${d.label})
+        <button onclick="changeSlotsDate('${d.dateStr}')" class="px-3 py-1.5 rounded-xl text-xs flex-shrink-0 transition-all active:scale-95 text-center ${cls}">
+          <div>${d.day}.${String(d.month).padStart(2, '0')} (${d.label})</div>
+          ${todayBadge}
         </button>`;
     }).join("");
   }
@@ -604,7 +720,7 @@ function changeSlotsEmployee(empId) {
 }
 
 function setSlotStatus(slotId, status) {
-  const dateStr = state.selectedDate || "2026-07-14";
+  const dateStr = state.selectedDate || getTodayDateStr();
   const empId = state.selectedSlotsEmployee || state.currentUser || 1;
   const slotStatuses = getSlotStatuses(dateStr, empId);
 
@@ -621,7 +737,7 @@ function setSlotStatus(slotId, status) {
 }
 
 function bulkSetSlots(status) {
-  const dateStr = state.selectedDate || "2026-07-14";
+  const dateStr = state.selectedDate || getTodayDateStr();
   const empId = state.selectedSlotsEmployee || state.currentUser || 1;
   const slotStatuses = getSlotStatuses(dateStr, empId);
 
@@ -746,10 +862,24 @@ function selectSlotsEmpModal(empId) {
 }
 
 function renderSchedule() {
-  // Weekly hours summary for the logged-in user
+  const mondayStr = state.currentWeekMondayStr || formatDateToISO(getMondayOfDate(new Date()));
+  const weekDays = getWeekDaysForMonday(mondayStr);
+
+  // Render Table Header Days Row
+  const daysRow = document.getElementById("schedule-table-days-row");
+  if (daysRow) {
+    daysRow.innerHTML = weekDays.map(d => {
+      const isWeekend = d.label === "Сб" || d.label === "Нд";
+      const textColor = isWeekend ? "text-tertiary" : "";
+      const isToday = d.isToday ? "bg-primary-container/20 text-primary font-extrabold" : "";
+      return `<th colspan="3" class="py-1.5 border-b border-r border-outline-variant text-[11px] ${textColor} ${isToday}">${String(d.day).padStart(2, '0')}.${String(d.month).padStart(2, '0')} (${d.label})</th>`;
+    }).join("");
+  }
+
+  // Weekly hours summary for the logged-in user for active week
   const user = state.employees.find(e => e.id === state.currentUser);
   let totalHours = 0;
-  WEEK_DAYS.forEach(d => {
+  weekDays.forEach(d => {
     const dayData = state.attendance[d.dateStr] || {};
     const rec = dayData[state.currentUser];
     if (rec && (rec.status === "Arrived" || rec.status === "Working")) {
@@ -762,19 +892,18 @@ function renderSchedule() {
   if (titleEl && user) titleEl.textContent = `Всього ваших годин за тиждень (${user.name})`;
   if (valEl) valEl.textContent = `${totalHours.toFixed(1)} год.`;
 
-  // Render spreadsheet table rows
+  // Render spreadsheet table rows for active week
   const tbody = document.getElementById("schedule-table-body");
   if (!tbody) return;
 
   tbody.innerHTML = state.employees.map(emp => {
     const isCurrentUser = emp.id === state.currentUser;
-    // Tint rows of logged in user to stand out visually
     const stickyBgClass = isCurrentUser ? "bg-blue-50" : "bg-white";
     const nameColorClass = isCurrentUser ? "text-primary font-bold" : "text-on-surface";
     const youSuffix = isCurrentUser ? " <span class='text-[9px] bg-primary text-on-primary px-1 rounded'>Ви</span>" : "";
 
     let cellsHtml = "";
-    WEEK_DAYS.forEach(d => {
+    weekDays.forEach(d => {
       const dayData = state.attendance[d.dateStr] || {};
       const rec = dayData[emp.id] || { status: "Absent", clockIn: "", clockOut: "", hours: 0 };
       
@@ -805,11 +934,8 @@ function renderSchedule() {
 
     return `
       <tr class="hover:bg-surface-container-low transition-colors">
-        <!-- Row index column (sticky left, thin border separator, explicit border-b, compressed to 32px) -->
         <td class="py-3 border-b border-r border-outline-variant/80 sticky left-0 z-10 text-center text-[10px] ${stickyBgClass} text-on-surface-variant">${emp.id}.</td>
-        <!-- Full name column (sticky left-32, thick border separator at the end, explicit border-b, compressed to 110px) -->
         <td class="px-2 py-3 border-b border-r-2 border-primary/20 sticky left-[32px] z-10 truncate ${stickyBgClass} ${nameColorClass} text-[11px]">${emp.name}${youSuffix}</td>
-        <!-- Days data -->
         ${cellsHtml}
       </tr>
     `;
@@ -833,8 +959,8 @@ function openAttendanceModal(employeeId, dateStr) {
   const rec = (state.attendance[dateStr] || {})[employeeId] || { status: "Absent", clockIn: "09:00", clockOut: "18:00" };
   currentModalStatus = rec.status;
 
-  const dateObj = WEEK_DAYS.find(d => d.dateStr === dateStr);
-  const dateLabel = dateObj ? `${dateObj.day}.07 (${dateObj.label})` : dateStr;
+  const dateParts = dateStr.split("-");
+  const dateLabel = `${dateParts[2]}.${dateParts[1]}`;
   document.getElementById("modal-employee-name").textContent = `${emp.name} (${dateLabel})`;
 
   document.getElementById("modal-clock-in").value = rec.clockIn || "09:00";
@@ -925,7 +1051,7 @@ function autoFillHoursFromSchedule() {
   const hoursInput = document.getElementById("hoursInput");
   if (!hoursInput) return;
 
-  const todayAtt = state.attendance[state.selectedDate] || {};
+  const todayAtt = state.attendance[state.selectedDate || getTodayDateStr()] || {};
   const rec = todayAtt[state.currentUser];
   if (rec && (rec.status === "Arrived" || rec.status === "Working")) {
     hoursInput.value = rec.hours || 0;
@@ -965,7 +1091,7 @@ function savePayout() {
   if (hours <= 0) return;
 
   const amount = hours * user.rate;
-  state.payouts.unshift({ id: Date.now(), employeeId: user.id, employeeName: user.name, date: state.selectedDate, hours, rate: user.rate, amount });
+  state.payouts.unshift({ id: Date.now(), employeeId: user.id, employeeName: user.name, date: state.selectedDate || getTodayDateStr(), hours, rate: user.rate, amount });
   saveState();
   alert(`✅ Виплату для ${user.name} на суму ${amount} грн збережено!`);
   hoursInput.value = "0";
