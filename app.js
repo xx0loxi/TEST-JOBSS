@@ -431,11 +431,17 @@ function switchTab(tabId) {
 }
 
 // ===================================================
-// BOTTOM NAV (Completely static and symmetrical - NO JITTER)
+// BOTTOM NAV (Persistent DOM + Perfect Rect-Based Sliding Pill)
 // ===================================================
 function renderBottomNav() {
   const nav = document.getElementById("bottom-nav");
   if (!nav) return;
+
+  // Preserve existing DOM node so CSS transition slides smoothly between tabs without resetting to left
+  if (document.getElementById("bottom-nav-indicator")) {
+    updateBottomNavState();
+    return;
+  }
 
   const tabs = [
     { id: "dashboard",   label: "Головна",     icon: "home" },
@@ -443,29 +449,83 @@ function renderBottomNav() {
     { id: "calculator",  label: "Калькулятор",  icon: "calculate" }
   ];
 
-  nav.innerHTML = tabs.map(tab => {
-    const isActive = state.activeTab === tab.id;
-    const activeTextClass = isActive ? "text-on-surface font-semibold" : "text-on-surface-variant";
-    const activeIconContainerClass = isActive 
-      ? "bg-secondary-container text-on-secondary-container rounded-full px-6 py-1" 
-      : "px-6 py-1";
-    const fillSettings = isActive ? "'FILL' 1" : "'FILL' 0";
-
+  const tabsHtml = tabs.map(tab => {
     return `
-      <a href="#" onclick="switchTab('${tab.id}'); return false;"
-         class="flex flex-1 flex-col items-center justify-center gap-1 min-w-0 select-none">
-        <div class="flex items-center justify-center transition-all duration-200 active:scale-95 ${activeIconContainerClass}">
-          <span class="material-symbols-outlined" style="font-variation-settings: ${fillSettings}">${tab.icon}</span>
+      <a href="#" id="nav-tab-${tab.id}" onclick="switchTab('${tab.id}'); return false;"
+         class="relative z-10 flex flex-1 flex-col items-center justify-center gap-1 min-w-0 select-none group">
+        <div id="nav-tab-icon-${tab.id}" class="flex items-center justify-center h-8 px-6 transition-transform duration-150 group-active:scale-90 rounded-full">
+          <span id="nav-tab-icon-symbol-${tab.id}" class="material-symbols-outlined transition-colors duration-200">${tab.icon}</span>
         </div>
-        <span class="font-label-md text-label-md ${activeTextClass} truncate w-full text-center transition-colors duration-200">${tab.label}</span>
+        <span id="nav-tab-label-${tab.id}" class="font-label-md text-label-md truncate w-full text-center transition-colors duration-200">${tab.label}</span>
       </a>`;
   }).join("");
+
+  nav.className = "fixed bottom-0 left-0 right-0 z-50 flex justify-between items-center h-20 px-sm bg-surface border-t border-outline-variant pb-safe overflow-hidden";
+  nav.innerHTML = `
+    <div id="bottom-nav-indicator" class="absolute bg-secondary-container rounded-full pointer-events-none z-0" style="transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), width 0.3s cubic-bezier(0.16, 1, 0.3, 1), height 0.3s cubic-bezier(0.16, 1, 0.3, 1); top: 0; left: 0;"></div>
+    ${tabsHtml}
+  `;
+
+  updateBottomNavState();
+}
+
+function updateBottomNavState() {
+  const tabs = ["dashboard", "schedule", "calculator"];
+  
+  tabs.forEach(tabId => {
+    const isActive = state.activeTab === tabId;
+    const labelEl = document.getElementById(`nav-tab-label-${tabId}`);
+    const iconSymbolEl = document.getElementById(`nav-tab-icon-symbol-${tabId}`);
+
+    if (labelEl) {
+      labelEl.className = `font-label-md text-label-md ${isActive ? "text-on-surface font-semibold" : "text-on-surface-variant"} truncate w-full text-center transition-colors duration-200`;
+    }
+    if (iconSymbolEl) {
+      iconSymbolEl.className = `material-symbols-outlined transition-colors duration-200 ${isActive ? "text-on-secondary-container" : "text-on-surface-variant"}`;
+      iconSymbolEl.style.fontVariationSettings = isActive ? "'FILL' 1" : "'FILL' 0";
+    }
+  });
+
+  requestAnimationFrame(() => updateBottomNavIndicator());
+}
+
+function updateBottomNavIndicator() {
+  const nav = document.getElementById("bottom-nav");
+  const indicator = document.getElementById("bottom-nav-indicator");
+  if (!nav || !indicator) return;
+
+  const activeIconEl = document.getElementById(`nav-tab-icon-${state.activeTab}`);
+  if (!activeIconEl) return;
+
+  const navRect = nav.getBoundingClientRect();
+  const iconRect = activeIconEl.getBoundingClientRect();
+
+  if (navRect.width === 0 || iconRect.width === 0) return;
+
+  const targetLeft = iconRect.left - navRect.left;
+  const targetTop = iconRect.top - navRect.top;
+
+  indicator.style.transform = `translate3d(${targetLeft}px, ${targetTop}px, 0)`;
+  indicator.style.width = `${iconRect.width}px`;
+  indicator.style.height = `${iconRect.height}px`;
 }
 
 // ===================================================
 // DASHBOARD
 // ===================================================
 function renderDashboard() {
+  const user = state.employees.find(e => e.id === state.currentUser);
+  const userGreetingEl = document.getElementById("dashboard-user-greeting");
+  if (userGreetingEl && user) userGreetingEl.textContent = user.name;
+
+  const dateTextEl = document.getElementById("dashboard-today-date-text");
+  if (dateTextEl) {
+    const today = new Date();
+    const days = ["Неділя", "Понеділок", "Вівторок", "Середа", "Четвер", "П'ятниця", "Субота"];
+    const months = ["Січня", "Лютого", "Березня", "Квітня", "Травня", "Червня", "Липня", "Серпня", "Вересня", "Жовтня", "Листопада", "Грудня"];
+    dateTextEl.innerHTML = `<span class="material-symbols-outlined text-xs">today</span> ${days[today.getDay()]}, ${today.getDate()} ${months[today.getMonth()]}`;
+  }
+
   const todayAtt = state.attendance[state.selectedDate || getTodayDateStr()] || {};
   let onShift = 0, absent = 0;
 
@@ -478,8 +538,10 @@ function renderDashboard() {
     }
   });
 
-  document.getElementById("dashboard-on-shift").textContent = onShift;
-  document.getElementById("dashboard-absent").textContent = absent;
+  const onShiftEl = document.getElementById("dashboard-on-shift");
+  const absentEl = document.getElementById("dashboard-absent");
+  if (onShiftEl) onShiftEl.textContent = onShift;
+  if (absentEl) absentEl.textContent = absent;
 
   const feed = document.getElementById("dashboard-activity-feed");
   if (!feed) return;
@@ -491,31 +553,38 @@ function renderDashboard() {
     const rec = todayAtt[empId];
     const initials = getInitials(emp.name);
     if (rec.status === "Arrived") {
-      items.push({ initials, name: emp.name, action: `Вийшов о ${rec.clockOut}`, icon: "logout", cls: "text-error", bg: "bg-secondary-container text-on-secondary-container" });
-      items.push({ initials, name: emp.name, action: `Увійшов о ${rec.clockIn}`, icon: "login", cls: "text-on-surface-variant", bg: "bg-secondary-container text-on-secondary-container" });
+      items.push({ initials, name: emp.name, action: `Вийшов о ${rec.clockOut}`, icon: "logout", cls: "text-error font-bold", bg: "bg-rose-100 text-rose-800" });
+      items.push({ initials, name: emp.name, action: `Увійшов о ${rec.clockIn}`, icon: "login", cls: "text-emerald-700 font-bold", bg: "bg-emerald-100 text-emerald-800" });
     } else if (rec.status === "Working") {
-      items.push({ initials, name: emp.name, action: `Увійшов о ${rec.clockIn}`, icon: "login", cls: "text-on-surface-variant", bg: "bg-secondary-container text-on-secondary-container" });
+      items.push({ initials, name: emp.name, action: `Увійшов о ${rec.clockIn}`, icon: "login", cls: "text-emerald-700 font-bold", bg: "bg-emerald-100 text-emerald-800" });
     }
   });
 
   state.payouts.slice(0, 2).forEach(p => {
-    items.push({ initials: getInitials(p.employeeName), name: p.employeeName, action: `Виплата: ${p.amount} грн`, icon: "payments", cls: "text-on-surface-variant", bg: "bg-tertiary-container text-on-tertiary-container" });
+    items.push({ initials: getInitials(p.employeeName), name: p.employeeName, action: `Виплата: ${p.amount} грн`, icon: "payments", cls: "text-primary font-bold", bg: "bg-primary-container/20 text-primary" });
   });
 
   if (items.length === 0) {
-    feed.innerHTML = `<div class="p-md text-center text-on-surface-variant italic">Немає активностей за сьогодні</div>`;
+    feed.innerHTML = `
+      <div class="p-md text-center text-on-surface-variant italic flex flex-col items-center gap-1 py-6">
+        <span class="material-symbols-outlined text-2xl text-outline-variant">inbox</span>
+        <span class="text-xs">Немає активностей за сьогодні</span>
+      </div>`;
     return;
   }
 
   feed.innerHTML = items.slice(0, 4).map((item, i, arr) => `
-    <div class="flex items-center gap-md p-md ${i < arr.length - 1 ? "border-b border-outline-variant/50" : ""}">
-      <div class="w-10 h-10 rounded-full ${item.bg} flex items-center justify-center font-bold text-sm flex-shrink-0">${item.initials}</div>
-      <div class="flex flex-col min-w-0">
-        <span class="font-body-lg text-body-lg text-on-surface truncate font-semibold">${item.name}</span>
-        <span class="font-label-md text-label-md ${item.cls} flex items-center gap-1">
-          <span class="material-symbols-outlined text-[14px]">${item.icon}</span> ${item.action}
-        </span>
+    <div class="flex items-center justify-between p-md ${i < arr.length - 1 ? "border-b border-outline-variant/40" : ""} hover:bg-surface-container-low transition-colors duration-150">
+      <div class="flex items-center gap-md min-w-0">
+        <div class="w-9 h-9 rounded-full ${item.bg} flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-2xs">${item.initials}</div>
+        <div class="flex flex-col min-w-0">
+          <span class="font-body-md text-xs text-on-surface truncate font-semibold">${item.name}</span>
+          <span class="font-label-md text-[11px] ${item.cls} flex items-center gap-1 mt-0.5">
+            <span class="material-symbols-outlined text-[13px]">${item.icon}</span> ${item.action}
+          </span>
+        </div>
       </div>
+      <span class="material-symbols-outlined text-on-surface-variant/40 text-sm">chevron_right</span>
     </div>`).join("");
 }
 
@@ -637,7 +706,16 @@ function renderSlotsSchedule() {
   // 1. Render Date Pills with smooth active transitions
   const datePillsEl = document.getElementById("slots-date-pills");
   if (datePillsEl) {
-    datePillsEl.innerHTML = weekDays.map(d => {
+    let html = "";
+    if (!isCurrentWeek) {
+      html += `
+        <button onclick="jumpToCurrentWeek()" title="Перейти до поточного тижня та дня" class="px-3 py-1.5 rounded-xl text-xs flex-shrink-0 transition-all active:scale-95 text-center bg-primary text-on-primary font-bold shadow-xs border border-primary/40 flex items-center gap-1">
+          <span class="material-symbols-outlined text-sm text-white">my_location</span>
+          <div>До сьогодні</div>
+        </button>`;
+    }
+
+    html += weekDays.map(d => {
       const isActive = d.dateStr === dateStr;
       let cls = "bg-surface-container-lowest border border-outline-variant text-on-surface-variant hover:bg-surface-container-low";
       
@@ -655,6 +733,8 @@ function renderSlotsSchedule() {
           ${todayBadge}
         </button>`;
     }).join("");
+
+    datePillsEl.innerHTML = html;
   }
 
   // 2. Render Custom Employee Button Badge & Name
@@ -680,7 +760,7 @@ function renderSlotsSchedule() {
   const hoursEl = document.getElementById("slots-total-hours");
   if (hoursEl) hoursEl.textContent = `${workedHours.toFixed(1)} год`;
 
-  // 4. Render 21 Time Slot Cards with crisp Material vector icons
+  // 4. Render 21 Time Slot Cards with persistent DOM IDs for in-place CSS transitions
   const containerEl = document.getElementById("slots-container");
   if (!containerEl) return;
 
@@ -693,19 +773,35 @@ function renderSlotsSchedule() {
 
     if (status === "worked") {
       cardBorderClass = "bg-emerald-50/20 border border-outline-variant/50 border-l-4 border-l-emerald-500 shadow-xs";
-      badgeHtml = `<span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex-shrink-0 items-center gap-1"><span class="material-symbols-outlined text-[12px] text-[#16a34a]">check_circle</span> Відпрацьовано</span>`;
+      badgeHtml = `<span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex-shrink-0 items-center gap-1 transition-all duration-300"><span class="material-symbols-outlined text-[12px] text-[#16a34a]">check_circle</span> Відпрацьовано</span>`;
     } else if (status === "missed") {
       cardBorderClass = "bg-rose-50/20 border border-outline-variant/50 border-l-4 border-l-rose-500 shadow-xs";
-      badgeHtml = `<span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 flex-shrink-0 items-center gap-1"><span class="material-symbols-outlined text-[12px] text-error">cancel</span> Пропуск</span>`;
+      badgeHtml = `<span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 flex-shrink-0 items-center gap-1 transition-all duration-300"><span class="material-symbols-outlined text-[12px] text-error">cancel</span> Пропуск</span>`;
     } else {
-      badgeHtml = `<span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-surface-container text-on-surface-variant flex-shrink-0 items-center gap-1"><span class="material-symbols-outlined text-[12px]">schedule</span> Очікує</span>`;
+      badgeHtml = `<span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-surface-container text-on-surface-variant flex-shrink-0 items-center gap-1 transition-all duration-300"><span class="material-symbols-outlined text-[12px]">schedule</span> Очікує</span>`;
     }
 
     const typeIcon = isWork ? "work" : "coffee";
     const typeLabel = isWork ? "Робочий час (1 год)" : (slot.duration > 0.2 ? "Обідня перерва (20 хв)" : "Перерва (10 хв)");
 
+    const workedBtnClass = status === "worked" 
+      ? "bg-[#16a34a] text-white shadow-sm scale-100" 
+      : "text-on-surface-variant/70 hover:text-emerald-700 hover:bg-emerald-100/50 scale-95 opacity-60 hover:opacity-100";
+    
+    const workedIconClass = status === "worked" 
+      ? "scale-110 rotate-0 opacity-100" 
+      : "scale-85 -rotate-6 opacity-60";
+
+    const missedBtnClass = status === "missed" 
+      ? "bg-error text-white shadow-sm scale-100" 
+      : "text-on-surface-variant/70 hover:text-rose-700 hover:bg-rose-100/50 scale-95 opacity-60 hover:opacity-100";
+
+    const missedIconClass = status === "missed" 
+      ? "scale-110 rotate-0 opacity-100" 
+      : "scale-85 rotate-6 opacity-60";
+
     return `
-      <div class="rounded-xl p-3 flex items-center justify-between transition-all ${cardBorderClass}">
+      <div id="slot-card-${slot.id}" class="slot-card rounded-xl p-3 flex items-center justify-between transition-all duration-300 ease-out ${cardBorderClass}">
         <div class="flex items-center gap-2.5 min-w-0 pr-xs">
           <div class="w-7 h-7 rounded-lg bg-surface-container flex items-center justify-center text-[10px] font-bold text-on-surface-variant flex-shrink-0">
             #${slot.id}
@@ -721,19 +817,84 @@ function renderSlotsSchedule() {
         </div>
 
         <div class="flex items-center gap-2 flex-shrink-0">
-          ${badgeHtml}
+          <div id="slot-badge-${slot.id}">${badgeHtml}</div>
           
           <div class="flex items-center bg-surface-container border border-outline-variant/80 rounded-xl p-0.5 gap-0.5">
-            <button onclick="setSlotStatus(${slot.id}, 'worked')" title="Відпрацьовано" class="w-8 h-8 rounded-lg font-bold flex items-center justify-center transition-all duration-150 active:scale-90 ${status === "worked" ? "bg-[#16a34a] text-white shadow-xs" : "text-on-surface-variant hover:bg-emerald-100/60 hover:text-emerald-700"}">
-              <span class="material-symbols-outlined text-lg" style="font-variation-settings: 'wght' 700;">check</span>
+            <button id="slot-btn-worked-${slot.id}" onclick="setSlotStatus(${slot.id}, 'worked')" title="Відпрацьовано" class="slot-btn w-8 h-8 rounded-lg font-bold flex items-center justify-center active:scale-90 transition-all duration-300 ${workedBtnClass}">
+              <span id="slot-icon-worked-${slot.id}" class="slot-btn-icon material-symbols-outlined text-lg transition-transform duration-300 ${workedIconClass}" style="font-variation-settings: 'wght' 700;">check</span>
             </button>
-            <button onclick="setSlotStatus(${slot.id}, 'missed')" title="Пропуск" class="w-8 h-8 rounded-lg font-bold flex items-center justify-center transition-all duration-150 active:scale-90 ${status === "missed" ? "bg-error text-white shadow-xs" : "text-on-surface-variant hover:bg-rose-100/60 hover:text-rose-700"}">
-              <span class="material-symbols-outlined text-lg" style="font-variation-settings: 'wght' 700;">close</span>
+            <button id="slot-btn-missed-${slot.id}" onclick="setSlotStatus(${slot.id}, 'missed')" title="Пропуск" class="slot-btn w-8 h-8 rounded-lg font-bold flex items-center justify-center active:scale-90 transition-all duration-300 ${missedBtnClass}">
+              <span id="slot-icon-missed-${slot.id}" class="slot-btn-icon material-symbols-outlined text-lg transition-transform duration-300 ${missedIconClass}" style="font-variation-settings: 'wght' 700;">close</span>
             </button>
           </div>
         </div>
       </div>`;
   }).join("");
+}
+
+function updateSlotCardDOM(slotId, dateStr, empId) {
+  const slot = TIME_SLOTS.find(s => s.id === slotId);
+  if (!slot) return;
+
+  const slotStatuses = getSlotStatuses(dateStr, empId);
+  const status = slotStatuses[slotId] || "none";
+
+  const cardEl = document.getElementById(`slot-card-${slotId}`);
+  const badgeEl = document.getElementById(`slot-badge-${slotId}`);
+  const workedBtn = document.getElementById(`slot-btn-worked-${slotId}`);
+  const workedIcon = document.getElementById(`slot-icon-worked-${slotId}`);
+  const missedBtn = document.getElementById(`slot-btn-missed-${slotId}`);
+  const missedIcon = document.getElementById(`slot-icon-missed-${slotId}`);
+
+  if (cardEl) {
+    if (status === "worked") {
+      cardEl.className = "slot-card rounded-xl p-3 flex items-center justify-between transition-all duration-300 ease-out bg-emerald-50/20 border border-outline-variant/50 border-l-4 border-l-emerald-500 shadow-xs";
+    } else if (status === "missed") {
+      cardEl.className = "slot-card rounded-xl p-3 flex items-center justify-between transition-all duration-300 ease-out bg-rose-50/20 border border-outline-variant/50 border-l-4 border-l-rose-500 shadow-xs";
+    } else {
+      cardEl.className = "slot-card rounded-xl p-3 flex items-center justify-between transition-all duration-300 ease-out bg-surface-container-lowest border border-outline-variant/60 border-l-4 border-l-outline-variant/60";
+    }
+  }
+
+  if (badgeEl) {
+    if (status === "worked") {
+      badgeEl.innerHTML = `<span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex-shrink-0 items-center gap-1 transition-all duration-300"><span class="material-symbols-outlined text-[12px] text-[#16a34a]">check_circle</span> Відпрацьовано</span>`;
+    } else if (status === "missed") {
+      badgeEl.innerHTML = `<span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 flex-shrink-0 items-center gap-1 transition-all duration-300"><span class="material-symbols-outlined text-[12px] text-error">cancel</span> Пропуск</span>`;
+    } else {
+      badgeEl.innerHTML = `<span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-surface-container text-on-surface-variant flex-shrink-0 items-center gap-1 transition-all duration-300"><span class="material-symbols-outlined text-[12px]">schedule</span> Очікує</span>`;
+    }
+  }
+
+  if (workedBtn && workedIcon) {
+    if (status === "worked") {
+      workedBtn.className = "slot-btn w-8 h-8 rounded-lg font-bold flex items-center justify-center active:scale-90 transition-all duration-300 bg-[#16a34a] text-white shadow-sm scale-100";
+      workedIcon.className = "slot-btn-icon material-symbols-outlined text-lg transition-transform duration-300 scale-110 rotate-0 opacity-100";
+    } else {
+      workedBtn.className = "slot-btn w-8 h-8 rounded-lg font-bold flex items-center justify-center active:scale-90 transition-all duration-300 text-on-surface-variant/70 hover:text-emerald-700 hover:bg-emerald-100/50 scale-95 opacity-60 hover:opacity-100";
+      workedIcon.className = "slot-btn-icon material-symbols-outlined text-lg transition-transform duration-300 scale-85 -rotate-6 opacity-60";
+    }
+  }
+
+  if (missedBtn && missedIcon) {
+    if (status === "missed") {
+      missedBtn.className = "slot-btn w-8 h-8 rounded-lg font-bold flex items-center justify-center active:scale-90 transition-all duration-300 bg-error text-white shadow-sm scale-100";
+      missedIcon.className = "slot-btn-icon material-symbols-outlined text-lg transition-transform duration-300 scale-110 rotate-0 opacity-100";
+    } else {
+      missedBtn.className = "slot-btn w-8 h-8 rounded-lg font-bold flex items-center justify-center active:scale-90 transition-all duration-300 text-on-surface-variant/70 hover:text-rose-700 hover:bg-rose-100/50 scale-95 opacity-60 hover:opacity-100";
+      missedIcon.className = "slot-btn-icon material-symbols-outlined text-lg transition-transform duration-300 scale-85 rotate-6 opacity-60";
+    }
+  }
+
+  // Update total hours summary text
+  let workedHours = 0;
+  TIME_SLOTS.forEach(s => {
+    if (slotStatuses[s.id] === "worked" && s.type === "work") {
+      workedHours += s.duration;
+    }
+  });
+  const hoursEl = document.getElementById("slots-total-hours");
+  if (hoursEl) hoursEl.textContent = `${workedHours.toFixed(1)} год`;
 }
 
 function changeSlotsDate(dateStr) {
@@ -764,7 +925,7 @@ function setSlotStatus(slotId, status) {
 
   syncSlotsToAttendance(dateStr, empId);
   saveState();
-  renderSlotsSchedule();
+  updateSlotCardDOM(slotId, dateStr, empId);
   renderSchedule();
 }
 
@@ -775,12 +936,11 @@ function bulkSetSlots(status) {
 
   TIME_SLOTS.forEach(s => {
     slotStatuses[s.id] = status;
+    updateSlotCardDOM(s.id, dateStr, empId);
   });
 
   syncSlotsToAttendance(dateStr, empId);
   saveState();
-  triggerDaySlotAnimation();
-  renderSlotsSchedule();
   renderSchedule();
 }
 
@@ -1072,12 +1232,20 @@ function saveAttendanceModal() {
 }
 
 // ===================================================
-// CALCULATOR
+// CALCULATOR (Premium Glassmorphism + Animated Counter)
 // ===================================================
+let currentAnimatedAmount = 0;
+
 function renderCalculator() {
   const user = state.employees.find(e => e.id === state.currentUser);
   const rate = user ? user.rate : 105;
-  document.getElementById("calculator-base-rate").textContent = rate;
+  
+  const rateEl = document.getElementById("calculator-base-rate");
+  if (rateEl) rateEl.textContent = rate;
+
+  const unameEl = document.getElementById("calc-user-name");
+  if (unameEl && user) unameEl.textContent = user.name;
+
   autoFillHoursFromSchedule();
 }
 
@@ -1090,9 +1258,54 @@ function autoFillHoursFromSchedule() {
   if (rec && (rec.status === "Arrived" || rec.status === "Working")) {
     hoursInput.value = rec.hours || 0;
   } else {
-    hoursInput.value = "0";
+    hoursInput.value = "10";
   }
   calculate();
+}
+
+function adjustHours(delta) {
+  const hoursInput = document.getElementById("hoursInput");
+  if (!hoursInput) return;
+  let val = (parseFloat(hoursInput.value) || 0) + delta;
+  if (val < 0) val = 0;
+  hoursInput.value = val;
+  calculate();
+}
+
+function setHoursPreset(hours) {
+  const hoursInput = document.getElementById("hoursInput");
+  if (!hoursInput) return;
+  hoursInput.value = hours;
+  calculate();
+}
+
+function animateNumberCountUp(targetAmount) {
+  const amountEl = document.getElementById("resAmount");
+  if (!amountEl) return;
+
+  const startAmount = currentAnimatedAmount;
+  const startTime = performance.now();
+  const duration = 300;
+
+  function update(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const easedProgress = 1 - Math.pow(1 - progress, 3);
+    const current = startAmount + (targetAmount - startAmount) * easedProgress;
+
+    amountEl.textContent = Number.isInteger(targetAmount) 
+      ? Math.round(current).toLocaleString("uk-UA") 
+      : current.toFixed(2);
+
+    if (progress < 1) {
+      requestAnimationFrame(update);
+    } else {
+      currentAnimatedAmount = targetAmount;
+      amountEl.textContent = Number.isInteger(targetAmount) ? targetAmount.toLocaleString("uk-UA") : targetAmount.toFixed(2);
+    }
+  }
+
+  requestAnimationFrame(update);
 }
 
 function calculate() {
@@ -1104,32 +1317,16 @@ function calculate() {
   const hours = parseFloat(hoursInput.value) || 0;
   const amount = hours * rate;
 
-  const card = document.getElementById("resultCard");
-  if (card) { card.style.transform = "scale(0.98)"; card.style.opacity = "0.8"; }
+  const resHoursEl = document.getElementById("resHours");
+  if (resHoursEl) resHoursEl.textContent = hours;
 
-  setTimeout(() => {
-    document.getElementById("resHours").textContent = hours;
-    document.getElementById("resAmount").textContent = Number.isInteger(amount) ? amount : amount.toFixed(2);
-    if (card) { card.style.transform = "scale(1)"; card.style.opacity = "1"; }
-  }, 150);
-}
+  const formulaEl = document.getElementById("calc-formula-text");
+  if (formulaEl) {
+    const fmtAmount = Number.isInteger(amount) ? amount.toLocaleString("uk-UA") : amount.toFixed(2);
+    formulaEl.textContent = `${hours} год × ${rate} грн/год = ${fmtAmount} грн`;
+  }
 
-function savePayout() {
-  const hoursInput = document.getElementById("hoursInput");
-  if (!hoursInput) return;
-
-  const user = state.employees.find(e => e.id === state.currentUser);
-  if (!user) return;
-
-  const hours = parseFloat(hoursInput.value) || 0;
-  if (hours <= 0) return;
-
-  const amount = hours * user.rate;
-  state.payouts.unshift({ id: Date.now(), employeeId: user.id, employeeName: user.name, date: state.selectedDate || getTodayDateStr(), hours, rate: user.rate, amount });
-  saveState();
-  alert(`✅ Виплату для ${user.name} на суму ${amount} грн збережено!`);
-  hoursInput.value = "0";
-  calculate();
+  animateNumberCountUp(amount);
 }
 
 // ===================================================
@@ -1144,4 +1341,6 @@ document.addEventListener("DOMContentLoaded", () => {
     hoursInput.addEventListener("focus", function() { this.select(); });
     hoursInput.addEventListener("input", calculate);
   }
+
+  window.addEventListener("resize", updateBottomNavIndicator);
 });
