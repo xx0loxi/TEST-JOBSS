@@ -225,6 +225,28 @@ function jumpToCurrentWeek() {
   renderSchedule();
 }
 
+// Effective worked hours for a record. "Arrived" uses the stored total;
+// "Working" (still on shift today) is estimated live from clockIn to now,
+// capped at the 19:00 end of the workday. Past/other days fall back to 0.
+function getEffectiveHours(rec, dateStr) {
+  if (!rec) return 0;
+  if (rec.status === "Arrived") return rec.hours || 0;
+  if (rec.status === "Working") {
+    if (dateStr !== getTodayDateStr() || !rec.clockIn) return rec.hours || 0;
+    const [inH, inM] = rec.clockIn.split(":").map(Number);
+    if (Number.isNaN(inH) || Number.isNaN(inM)) return 0;
+    const now = new Date();
+    let diff = (now.getHours() * 60 + now.getMinutes()) - (inH * 60 + inM);
+    const endOfDay = 19 * 60;
+    if (now.getHours() * 60 + now.getMinutes() > endOfDay) {
+      diff = endOfDay - (inH * 60 + inM);
+    }
+    if (diff < 0) diff = 0;
+    return diff / 60;
+  }
+  return 0;
+}
+
 function getInitials(name) {
   if (!name) return "??";
   const parts = name.trim().split(/\s+/);
@@ -259,12 +281,18 @@ function initState() {
   const todayStr = getTodayDateStr();
   const todayMondayStr = formatDateToISO(getMondayOfDate(new Date()));
 
-  // Always align to current week and today on app load
-  state.currentWeekMondayStr = todayMondayStr;
-  state.selectedDate = todayStr;
+  // Align to current week/day only when nothing valid was persisted,
+  // so a user's chosen week/date survives a reload.
+  if (!state.currentWeekMondayStr) state.currentWeekMondayStr = todayMondayStr;
+  if (!state.selectedDate) state.selectedDate = todayStr;
 
   if (!state.slotAttendance) state.slotAttendance = {};
   if (!state.scheduleSubView) state.scheduleSubView = "slots";
+  if (!Array.isArray(state.payouts)) state.payouts = [];
+  if (!Array.isArray(state.employees) || state.employees.length === 0) {
+    state.employees = JSON.parse(JSON.stringify(DEFAULT_EMPLOYEES));
+  }
+  if (!state.attendance || typeof state.attendance !== "object") state.attendance = {};
   if (!state.selectedSlotsEmployee && state.currentUser) {
     state.selectedSlotsEmployee = state.currentUser;
   }
@@ -522,7 +550,7 @@ function renderDashboard() {
     dateTextEl.innerHTML = `<span class="material-symbols-outlined text-xs">today</span> ${days[today.getDay()]}, ${today.getDate()} ${months[today.getMonth()]}`;
   }
 
-  const todayAtt = state.attendance[state.selectedDate || getTodayDateStr()] || {};
+  const todayAtt = state.attendance[getTodayDateStr()] || {};
   let onShift = 0, absent = 0;
 
   state.employees.forEach(emp => {
@@ -735,6 +763,7 @@ function renderSlotsSchedule() {
 
   // 2. Render Custom Employee Button Badge & Name
   const emp = state.employees.find(e => e.id === empId) || state.employees[0];
+  if (!emp) return;
   const empBadgeEl = document.getElementById("slots-emp-badge");
   const empNameEl = document.getElementById("slots-emp-name");
   if (empBadgeEl) empBadgeEl.textContent = getInitials(emp.name);
@@ -782,19 +811,19 @@ function renderSlotsSchedule() {
 
     const workedBtnClass = status === "worked" 
       ? "bg-[#16a34a] text-white shadow-sm scale-100" 
-      : "text-on-surface-variant/70 hover:text-emerald-700 hover:bg-emerald-100/50 scale-95 opacity-60 hover:opacity-100";
+      : "slot-btn-inactive-worked hover:bg-emerald-100/50 scale-95";
     
     const workedIconClass = status === "worked" 
       ? "scale-110 rotate-0 opacity-100" 
-      : "scale-85 -rotate-6 opacity-60";
+      : "scale-85 -rotate-6";
 
     const missedBtnClass = status === "missed" 
       ? "bg-error text-white shadow-sm scale-100" 
-      : "text-on-surface-variant/70 hover:text-rose-700 hover:bg-rose-100/50 scale-95 opacity-60 hover:opacity-100";
+      : "slot-btn-inactive-missed hover:bg-rose-100/50 scale-95";
 
     const missedIconClass = status === "missed" 
       ? "scale-110 rotate-0 opacity-100" 
-      : "scale-85 rotate-6 opacity-60";
+      : "scale-85 rotate-6";
 
     return `
       <div id="slot-card-${slot.id}" class="slot-card rounded-xl p-3 flex items-center justify-between transition-all duration-300 ease-out ${cardBorderClass}">
@@ -867,8 +896,8 @@ function updateSlotCardDOM(slotId, dateStr, empId) {
       workedBtn.className = "slot-btn w-8 h-8 rounded-lg font-bold flex items-center justify-center active:scale-90 transition-all duration-300 bg-[#16a34a] text-white shadow-sm scale-100";
       workedIcon.className = "slot-btn-icon material-symbols-outlined text-lg transition-transform duration-300 scale-110 rotate-0 opacity-100";
     } else {
-      workedBtn.className = "slot-btn w-8 h-8 rounded-lg font-bold flex items-center justify-center active:scale-90 transition-all duration-300 text-on-surface-variant/70 hover:text-emerald-700 hover:bg-emerald-100/50 scale-95 opacity-60 hover:opacity-100";
-      workedIcon.className = "slot-btn-icon material-symbols-outlined text-lg transition-transform duration-300 scale-85 -rotate-6 opacity-60";
+      workedBtn.className = "slot-btn slot-btn-inactive-worked w-8 h-8 rounded-lg font-bold flex items-center justify-center active:scale-90 transition-all duration-300 hover:bg-emerald-100/50 scale-95";
+      workedIcon.className = "slot-btn-icon material-symbols-outlined text-lg transition-transform duration-300 scale-85 -rotate-6";
     }
   }
 
@@ -877,8 +906,8 @@ function updateSlotCardDOM(slotId, dateStr, empId) {
       missedBtn.className = "slot-btn w-8 h-8 rounded-lg font-bold flex items-center justify-center active:scale-90 transition-all duration-300 bg-error text-white shadow-sm scale-100";
       missedIcon.className = "slot-btn-icon material-symbols-outlined text-lg transition-transform duration-300 scale-110 rotate-0 opacity-100";
     } else {
-      missedBtn.className = "slot-btn w-8 h-8 rounded-lg font-bold flex items-center justify-center active:scale-90 transition-all duration-300 text-on-surface-variant/70 hover:text-rose-700 hover:bg-rose-100/50 scale-95 opacity-60 hover:opacity-100";
-      missedIcon.className = "slot-btn-icon material-symbols-outlined text-lg transition-transform duration-300 scale-85 rotate-6 opacity-60";
+      missedBtn.className = "slot-btn slot-btn-inactive-missed w-8 h-8 rounded-lg font-bold flex items-center justify-center active:scale-90 transition-all duration-300 hover:bg-rose-100/50 scale-95";
+      missedIcon.className = "slot-btn-icon material-symbols-outlined text-lg transition-transform duration-300 scale-85 rotate-6";
     }
   }
 
@@ -899,13 +928,6 @@ function changeSlotsDate(dateStr) {
   triggerDaySlotAnimation();
   renderSlotsSchedule();
   renderSchedule();
-}
-
-function changeSlotsEmployee(empId) {
-  state.selectedSlotsEmployee = parseInt(empId);
-  saveState();
-  triggerDaySlotAnimation();
-  renderSlotsSchedule();
 }
 
 function setSlotStatus(slotId, status) {
@@ -1072,9 +1094,7 @@ function renderSchedule() {
   weekDays.forEach(d => {
     const dayData = state.attendance[d.dateStr] || {};
     const rec = dayData[state.currentUser];
-    if (rec && (rec.status === "Arrived" || rec.status === "Working")) {
-      totalHours += rec.hours || 0;
-    }
+    totalHours += getEffectiveHours(rec, d.dateStr);
   });
 
   const titleEl = document.getElementById("hours-summary-title");
@@ -1108,7 +1128,10 @@ function renderSchedule() {
       } else if (rec.status === "Working") {
         arrivalText = rec.clockIn;
         departureText = "-";
-        hoursText = "зміна";
+        const liveHours = getEffectiveHours(rec, d.dateStr);
+        hoursText = liveHours > 0
+          ? (liveHours % 1 === 0 ? liveHours : liveHours.toFixed(1))
+          : "зміна";
       } else {
         arrivalText = rec.clockIn;
         departureText = rec.clockOut;
@@ -1249,7 +1272,7 @@ function autoFillHoursFromSchedule() {
   const hoursInput = document.getElementById("hoursInput");
   if (!hoursInput) return;
 
-  const todayAtt = state.attendance[state.selectedDate || getTodayDateStr()] || {};
+  const todayAtt = state.attendance[getTodayDateStr()] || {};
   const rec = todayAtt[state.currentUser];
   if (rec && (rec.status === "Arrived" || rec.status === "Working")) {
     hoursInput.value = rec.hours || 0;
@@ -1326,9 +1349,45 @@ function calculate() {
 }
 
 // ===================================================
+// THEME MANAGEMENT (Light / Dark Mode System)
+// ===================================================
+function initTheme() {
+  const savedTheme = localStorage.getItem("staff_logic_theme") || "light";
+  applyTheme(savedTheme);
+}
+
+function applyTheme(theme) {
+  const html = document.documentElement;
+  const icon = document.getElementById("theme-toggle-icon");
+  const themeIcons = document.querySelectorAll(".theme-icon");
+  
+  if (theme === "dark") {
+    html.classList.add("dark");
+    localStorage.setItem("staff_logic_theme", "dark");
+    if (icon) icon.textContent = "light_mode";
+    themeIcons.forEach(i => i.textContent = "light_mode");
+  } else {
+    html.classList.remove("dark");
+    localStorage.setItem("staff_logic_theme", "light");
+    if (icon) icon.textContent = "dark_mode";
+    themeIcons.forEach(i => i.textContent = "dark_mode");
+  }
+
+  if (typeof updateBottomNavIndicator === "function") {
+    requestAnimationFrame(() => updateBottomNavIndicator());
+  }
+}
+
+function toggleTheme() {
+  const isDark = document.documentElement.classList.contains("dark");
+  applyTheme(isDark ? "light" : "dark");
+}
+
+// ===================================================
 // BOOT
 // ===================================================
 document.addEventListener("DOMContentLoaded", () => {
+  initTheme();
   initState();
   checkLogin();
 

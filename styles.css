@@ -122,7 +122,492 @@ body {
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Smooth button tap feedback */
+/* Smooth button tap feedback & focus outline removal */
 button {
   -webkit-tap-highlight-color: transparent;
 }
+
+button:focus,
+button:focus-visible,
+button:active {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+button[onclick*="navigateWeek"],
+button[onclick*="jumpToCurrentWeek"] {
+  outline: none !important;
+}
+
+button[onclick*="navigateWeek"]:focus,
+button[onclick*="navigateWeek"]:focus-visible,
+button[onclick*="jumpToCurrentWeek"]:focus,
+button[onclick*="jumpToCurrentWeek"]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+}
+
+html.dark button[onclick*="navigateWeek"]:hover {
+  background-color: rgba(51, 65, 85, 0.5) !important;
+}
+
+html.dark button[onclick*="jumpToCurrentWeek"]:hover {
+  background-color: rgba(51, 65, 85, 0.5) !important;
+}
+
+
+/* ===================================================
+   DARK MODE COMPREHENSIVE HIGH-CONTRAST STYLES
+   =================================================== */
+html.dark,
+html.dark body {
+  background-color: #0b0f19 !important;
+  color: #f8fafc !important;
+}
+
+/* All text color resets */
+html.dark .text-on-surface,
+html.dark .text-on-background {
+  color: #f8fafc !important;
+}
+
+html.dark .text-on-surface-variant,
+html.dark .text-secondary {
+  color: #94a3b8 !important;
+}
+
+html.dark .text-primary {
+  color: #60a5fa !important;
+}
+
+/* Emerald & Rose Text Overrides for Dark Backgrounds */
+html.dark .text-emerald-800,
+html.dark .text-emerald-700,
+html.dark .text-emerald-600 {
+  color: #34d399 !important;
+}
+
+html.dark .text-rose-800,
+html.dark .text-rose-700,
+html.dark .text-rose-600 {
+  color: #f87171 !important;
+}
+
+/* Header & Nav */
+html.dark #app-header {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+}
+
+html.dark #header-title {
+  color: #60a5fa !important;
+}
+
+html.dark #header-username {
+  color: #cbd5e1 !important;
+}
+
+html.dark #header-badge {
+  background-color: #1e293b !important;
+  color: #60a5fa !important;
+}
+
+html.dark #theme-toggle-btn {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+html.dark #theme-toggle-btn:hover {
+  background-color: #334155 !important;
+}
+
+/* ===================================================
+   BOTTOM NAV & INDICATORS (Vivid Electric Blue in Both Light & Dark Modes)
+   =================================================== */
+#bottom-nav-indicator {
+  background-color: #2563eb !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35) !important;
+  border: none !important;
+}
+
+#bottom-nav .text-on-secondary-container {
+  color: #ffffff !important;
+}
+
+#bottom-nav .text-on-surface {
+  color: #2563eb !important;
+  font-weight: 700 !important;
+}
+
+#bottom-nav .text-on-surface-variant {
+  color: #64748b !important;
+}
+
+/* Dark Mode Overrides for Bottom Nav */
+html.dark #bottom-nav {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+}
+
+html.dark #bottom-nav-indicator {
+  background-color: #2563eb !important;
+  box-shadow: 0 0 16px rgba(37, 99, 235, 0.5) !important;
+  border: none !important;
+}
+
+html.dark #bottom-nav .text-on-secondary-container {
+  color: #ffffff !important;
+}
+
+html.dark #bottom-nav .text-on-surface {
+  color: #60a5fa !important;
+  font-weight: 700 !important;
+}
+
+html.dark #bottom-nav .text-on-surface-variant {
+  color: #94a3b8 !important;
+}
+
+/* ===================================================
+   EMPLOYEE TRIGGER BUTTON FIX IN DARK MODE
+   =================================================== */
+html.dark button[onclick="openSlotsEmpModal()"] {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+html.dark button[onclick="openSlotsEmpModal()"]:hover {
+  background-color: #334155 !important;
+  border-color: #60a5fa !important;
+}
+
+html.dark #slots-emp-badge {
+  background-color: #334155 !important;
+  color: #60a5fa !important;
+}
+
+html.dark #slots-emp-name {
+  color: #f8fafc !important;
+}
+
+
+/* Generic Surfaces & Cards */
+html.dark .bg-background,
+html.dark .bg-surface {
+  background-color: #0b0f19 !important;
+}
+
+html.dark .bg-surface-container-lowest {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+html.dark .bg-surface-container,
+html.dark .bg-surface-container-low,
+html.dark .bg-surface-container-high {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+html.dark .border-outline-variant {
+  border-color: #334155 !important;
+}
+
+/* Login Screen */
+html.dark #login-screen {
+  background-color: #0b0f19 !important;
+}
+
+html.dark #login-screen > div {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+html.dark #login-search {
+  color: #f8fafc !important;
+}
+
+html.dark .login-item {
+  color: #f8fafc !important;
+}
+
+html.dark .login-item:hover {
+  background-color: #334155 !important;
+}
+
+html.dark .login-item.bg-secondary-container {
+  background-color: #1e3a8a !important;
+  color: #93c5fd !important;
+  border-color: #3b82f6 !important;
+}
+
+/* Dashboard Elements */
+html.dark #dashboard-activity-feed {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+html.dark #dashboard-activity-feed > div {
+  border-color: #334155 !important;
+}
+
+html.dark #dashboard-activity-feed > div:hover {
+  background-color: rgba(51, 65, 85, 0.6) !important;
+}
+
+/* Schedule Segmented Switcher */
+html.dark .bg-surface-container-high {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+html.dark #subview-indicator {
+  background-color: #2563eb !important;
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.4) !important;
+  border: none !important;
+}
+
+html.dark #btn-subview-slots.text-primary,
+html.dark #btn-subview-table.text-primary {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+html.dark #btn-subview-slots.text-on-surface-variant,
+html.dark #btn-subview-table.text-on-surface-variant {
+  color: #94a3b8 !important;
+}
+
+
+/* Week Navigation & Controls */
+html.dark #current-week-range-text {
+  color: #f8fafc !important;
+}
+
+/* Date Pills */
+html.dark #slots-date-pills button.bg-surface-container-lowest {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+html.dark #slots-date-pills button.bg-surface-container-lowest:hover {
+  background-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+html.dark #slots-date-pills button.bg-secondary-container {
+  background-color: #1e3a8a !important;
+  color: #93c5fd !important;
+  border-color: #3b82f6 !important;
+}
+
+/* Slot Cards */
+html.dark .slot-card.bg-surface-container-lowest {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  border-left-color: #475569 !important;
+}
+
+html.dark .slot-card.bg-emerald-50\/20 {
+  background-color: rgba(6, 78, 59, 0.35) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  border-left-color: #10b981 !important;
+}
+
+html.dark .slot-card.bg-rose-50\/20 {
+  background-color: rgba(76, 5, 25, 0.35) !important;
+  border-color: rgba(244, 63, 94, 0.4) !important;
+  border-left-color: #f43f5e !important;
+}
+
+html.dark .slot-card .bg-surface-container {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+/* Inactive Slot Toggle Buttons Contrast Rules */
+.slot-btn-inactive-worked {
+  color: #059669 !important;
+  opacity: 0.75 !important;
+}
+
+.slot-btn-inactive-missed {
+  color: #dc2626 !important;
+  opacity: 0.75 !important;
+}
+
+html.dark .slot-btn-inactive-worked {
+  color: #34d399 !important;
+  opacity: 1 !important;
+}
+
+html.dark .slot-btn-inactive-missed {
+  color: #f87171 !important;
+  opacity: 1 !important;
+}
+
+html.dark .slot-btn-inactive-worked:hover {
+  background-color: rgba(6, 78, 59, 0.6) !important;
+  color: #6ee7b7 !important;
+}
+
+html.dark .slot-btn-inactive-missed:hover {
+  background-color: rgba(76, 5, 25, 0.6) !important;
+  color: #fca5a5 !important;
+}
+
+
+/* Spreadsheet Table */
+html.dark table {
+  background-color: #1e293b !important;
+}
+
+html.dark th {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+html.dark td {
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+html.dark td.bg-white,
+html.dark th.bg-surface-container {
+  background-color: #0f172a !important;
+}
+
+html.dark td.bg-blue-50 {
+  background-color: #1e3a8a !important;
+  color: #93c5fd !important;
+}
+
+html.dark tr:hover td {
+  background-color: rgba(51, 65, 85, 0.4) !important;
+}
+
+/* Modals */
+html.dark #attendance-modal-content,
+html.dark #slots-emp-modal-content {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+html.dark #modal-clock-in,
+html.dark #modal-clock-out,
+html.dark #slots-emp-search {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+/* Dark Mode Selected & Unselected Employee Modal Items */
+html.dark .slots-emp-item,
+html.dark .login-item {
+  color: #f8fafc !important;
+  border-color: transparent !important;
+}
+
+html.dark .slots-emp-item:hover,
+html.dark .login-item:hover {
+  background-color: #334155 !important;
+}
+
+html.dark .slots-emp-item .w-9,
+html.dark .slots-emp-item .w-10,
+html.dark .login-item .w-9,
+html.dark .login-item .w-10 {
+  background-color: #0f172a !important;
+  color: #60a5fa !important;
+  border-color: #334155 !important;
+}
+
+html.dark .slots-emp-item.bg-secondary-container,
+html.dark .login-item.bg-secondary-container {
+  background-color: rgba(30, 58, 138, 0.6) !important;
+  border-color: #3b82f6 !important;
+}
+
+html.dark .slots-emp-item.bg-secondary-container .font-body-md,
+html.dark .login-item.bg-secondary-container .font-body-lg {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+html.dark .slots-emp-item.bg-secondary-container .font-label-md,
+html.dark .login-item.bg-secondary-container .font-label-md {
+  color: #93c5fd !important;
+}
+
+html.dark .slots-emp-item.bg-secondary-container .w-9,
+html.dark .slots-emp-item.bg-secondary-container .w-10,
+html.dark .login-item.bg-secondary-container .w-9,
+html.dark .login-item.bg-secondary-container .w-10 {
+  background-color: #1e3a8a !important;
+  color: #60a5fa !important;
+  border-color: #3b82f6 !important;
+}
+
+html.dark .slots-emp-item.bg-secondary-container .check-icon,
+html.dark .login-item.bg-secondary-container .check-icon {
+  color: #60a5fa !important;
+}
+
+
+html.dark #modal-status-absent {
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+html.dark #modal-status-absent.bg-error-container {
+  background-color: rgba(153, 27, 27, 0.4) !important;
+  border-color: #ef4444 !important;
+  color: #fca5a5 !important;
+}
+
+html.dark #modal-status-arrived,
+html.dark #modal-status-working {
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+html.dark #modal-status-arrived.bg-secondary-container,
+html.dark #modal-status-working.bg-secondary-container {
+  background-color: rgba(30, 58, 138, 0.6) !important;
+  border-color: #3b82f6 !important;
+  color: #93c5fd !important;
+}
+
+/* Calculator Inputs & Buttons */
+html.dark #hoursInput {
+  color: #f8fafc !important;
+}
+
+html.dark button[onclick*="adjustHours"] {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+html.dark button[onclick*="adjustHours"]:hover {
+  background-color: #334155 !important;
+}
+
+html.dark button[onclick*="setHoursPreset"] {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+html.dark button[onclick*="setHoursPreset"]:hover {
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+
